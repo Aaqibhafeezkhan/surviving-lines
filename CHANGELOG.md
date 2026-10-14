@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.1 (unreleased)
+## 0.2.1 (2026-10-14)
 
 **`--markdown` escapes backslashes in names and addresses.** Only `|` was escaped, so a name
 containing `\|` came out as `\\|`, which Markdown reads as an escaped backslash followed by a cell

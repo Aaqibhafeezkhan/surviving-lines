@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.2 (unreleased)
+## 0.2.2 (2026-10-14)
 
 **An empty sample is an error, not a result.** `--sample 100000 --seed x` on a repository of 46 files sampled
 none and printed a table of 0.0% shares with exit code 0, so a script could not tell it from a real answer;

@@ -150,6 +150,7 @@ line of the table prints.
 --copies             pass -C to git blame as well as -w -M (slower, follows copies)
 --jobs <n>           parallel blame processes (default: 4)
 --top <k>            rows to print (default: 10)
+--sort <key>         lines (default), commits, or gap (absolute share difference)
 -q, --quiet          suppress progress output on stderr
 --json               print JSON instead of a table
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
@@ -172,7 +173,11 @@ a number can be quoted together with the exact command that produced it. It star
 `schemaVersion` and `tool: { name, version }`; the layout is described by
 [`schema/surviving-lines.schema.json`](schema/surviving-lines.schema.json), which ships in the
 package, and `schemaVersion` changes whenever a key is removed, renamed or changes type. `--csv` prints one
-row per author for spreadsheets. `--markdown`, contributed by
+row per author for spreadsheets. `--sort gap` puts the largest absolute difference between
+line share and commit share first; ties retain the existing lines, commits, then address order.
+JSON records the chosen key in `sort` and the schema describes it. The feature was contributed by
+[@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) for [issue #30](https://github.com/Bubblegunn/surviving-lines/issues/30).
+`--markdown`, contributed by
 [@shivam-070208](https://github.com/shivam-070208) in [#6](https://github.com/Bubblegunn/surviving-lines/pull/6),
 prints the same table as Markdown:
 

@@ -9,6 +9,11 @@
 a terminal, and `-q`/`--quiet` turns it off, so piped `--json` and `--csv` output is unchanged. Contributed by
 [@Enard52](https://github.com/Enard52) (issue [#31](https://github.com/Bubblegunn/surviving-lines/issues/31), [#42](https://github.com/Bubblegunn/surviving-lines/pull/42)).
 
+**Sort by lines, commits, or share gap.** `--sort gap` orders authors by the absolute percentage-point
+difference between line share and commit share, with the previous ordering as the tie-breaker. JSON
+records the selected `sort` key, which is required by the version 1 schema. Contributed by
+[@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) (issue [#30](https://github.com/Bubblegunn/surviving-lines/issues/30)).
+
 ## 0.2.2 (2026-10-14)
 
 **An empty sample is an error, not a result.** `--sample 100000 --seed x` on a repository of 46 files sampled

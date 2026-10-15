@@ -44,6 +44,23 @@ async function fixtureRepo() {
   return dir;
 }
 
+async function gapFixtureRepo() {
+  const dir = await fixtureRepo();
+  await writeFile(join(dir, "src", "d.js"), Array.from({ length: 9 }, (_, i) => `charlie ${i}`).join("\n") + "\n");
+  const env = {
+    ...process.env,
+    GIT_AUTHOR_NAME: "Charlie",
+    GIT_AUTHOR_EMAIL: "charlie@example.com",
+    GIT_COMMITTER_NAME: "CI",
+    GIT_COMMITTER_EMAIL: "ci@example.com",
+    GIT_AUTHOR_DATE: "2026-04-10T10:00:00Z",
+    GIT_COMMITTER_DATE: "2026-04-10T10:00:00Z",
+  };
+  execFileSync("git", ["add", "src/d.js"], { cwd: dir, env });
+  execFileSync("git", ["commit", "-q", "-m", "charlie: add d"], { cwd: dir, env });
+  return dir;
+}
+
 test("fnv1a is stable and inSample is deterministic", () => {
   assert.equal(fnv1a("hello"), 0x4f9f2cab);
   assert.equal(inSample("any/path.ts", 1, ""), true);
@@ -76,13 +93,16 @@ test("countBlameLines reads --line-porcelain and lowercases mails", () => {
 });
 
 test("parseArgs validates and collects repeatable options", () => {
-  const o = parseArgs(["--sample", "7", "--include", "**/*.ts", "--include", "**/*.tsx", "--exclude", "*.test.ts", "--json", "--", "src", "app"]);
+  const o = parseArgs(["--sample", "7", "--include", "**/*.ts", "--include", "**/*.tsx", "--exclude", "*.test.ts", "--json", "--sort", "gap", "--", "src", "app"]);
   assert.equal(o.sample, 7);
   assert.deepEqual(o.include, ["**/*.ts", "**/*.tsx"]);
   assert.deepEqual(o.exclude, ["*.test.ts"]);
   assert.equal(o.json, true);
+  assert.equal(o.sort, "gap");
+  assert.equal(parseArgs([]).sort, "lines");
   assert.deepEqual(o.paths, ["src", "app"]);
   assert.throws(() => parseArgs(["--sample", "0"]), /--sample/);
+  assert.throws(() => parseArgs(["--sort", "name"]), /--sort/);
   assert.throws(() => parseArgs(["--bogus"]), /unknown option/);
 });
 
@@ -119,6 +139,51 @@ test("analyse attributes surviving lines, follows renames, skips binaries, and c
     assert.match(dup, /Same <ada@example.com>/);
     assert.match(table, /Ada\s+11\s+52\.4%\s+1\s+33\.3%/);
     assert.match(table, /What this cannot show/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("default table output stays byte for byte unchanged", async () => {
+  const dir = await fixtureRepo();
+  try {
+    const r = await analyse(parseArgs(["--cwd", dir]));
+    const expected = [
+      "ref HEAD  ·  files 3/3 sampled (1 in 1)  ·  21 of 21 lines attributed",
+      "git blame -w -M  ·  commits 3, merges excluded",
+      "",
+      "author      lines   share  commits   share",
+      "------------------------------------------",
+      "Ada            11   52.4%        1   33.3%",
+      "Bob            10   47.6%        2   66.7%",
+      "",
+      "What this cannot show: quality of the lines, review work, design done in documents,",
+      "or code that was deleted on purpose. Share of surviving lines is about survivorship, not merit.",
+    ].join("\n");
+    assert.equal(renderTable(r, 10), expected);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("--sort orders by commits and absolute share gap, keeping today's order for ties", async () => {
+  const tiedDir = await fixtureRepo();
+  try {
+    const tied = await analyse(parseArgs(["--cwd", tiedDir, "--sort", "gap"]));
+    assert.deepEqual(tied.authors.map((a) => a.mail), ["ada@example.com", "bob@example.com"]);
+  } finally {
+    await rm(tiedDir, { recursive: true, force: true });
+  }
+
+  const dir = await gapFixtureRepo();
+  try {
+    const byGap = await analyse(parseArgs(["--cwd", dir, "--sort", "gap"]));
+    assert.deepEqual(byGap.authors.map((a) => a.mail), ["bob@example.com", "ada@example.com", "charlie@example.com"]);
+    assert.equal(byGap.sort, "gap");
+
+    const byCommits = await analyse(parseArgs(["--cwd", dir, "--sort", "commits"]));
+    assert.deepEqual(byCommits.authors.map((a) => a.mail), ["bob@example.com", "ada@example.com", "charlie@example.com"]);
+    assert.equal(byCommits.sort, "commits");
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -492,8 +557,8 @@ test("--allow-shallow runs anyway and marks every output format", async () => {
 
 /**
  * The part of JSON Schema that schema/surviving-lines.schema.json uses, checked by hand so the test
- * needs no dependency: type, const, required, properties, additionalProperties false, items, minimum
- * and maximum. Returns every violation with its path; an empty list means the value conforms.
+ * needs no dependency: type, const, enum, required, properties, additionalProperties false, items,
+ * minimum and maximum. Returns every violation with its path; an empty list means the value conforms.
  * @param {any} schema
  * @param {any} value
  * @param {string} [path]
@@ -511,6 +576,7 @@ function schemaErrors(schema, value, path = "$") {
     }
   }
   if ("const" in schema && value !== schema.const) errors.push(`${path}: expected ${JSON.stringify(schema.const)}, got ${JSON.stringify(value)}`);
+  if (schema.enum && !schema.enum.includes(value)) errors.push(`${path}: ${JSON.stringify(value)} is not an allowed value`);
   if (typeof value === "number") {
     if (schema.minimum !== undefined && value < schema.minimum) errors.push(`${path}: ${value} < ${schema.minimum}`);
     if (schema.maximum !== undefined && value > schema.maximum) errors.push(`${path}: ${value} > ${schema.maximum}`);
@@ -535,11 +601,12 @@ test("--json carries schemaVersion and the tool version, and matches the publish
 
   const dir = await fixtureRepo();
   try {
-    const run = spawnSync(process.execPath, [join(root, "bin", "surviving-lines.js"), "--cwd", dir, "--json", "--since", "2026-02-01"], { encoding: "utf8" });
+    const run = spawnSync(process.execPath, [join(root, "bin", "surviving-lines.js"), "--cwd", dir, "--json", "--since", "2026-02-01", "--sort", "gap"], { encoding: "utf8" });
     assert.equal(run.status, 0, run.stderr);
     const out = JSON.parse(run.stdout);
     assert.equal(out.schemaVersion, schema.properties.schemaVersion.const);
     assert.deepEqual(out.tool, { name: "surviving-lines", version: pkg.version });
+    assert.equal(out.sort, "gap");
     assert.deepEqual(schemaErrors(schema, out), []);
     assert.ok(out.authors.length > 0, "no author rows, so the row schema was not exercised");
 

@@ -53,6 +53,7 @@ Measure who wrote the code that is still alive in a git ref.
   --copies             pass -C to git blame as well as -w -M (slower, follows copies)
   --jobs <n>           parallel blame processes (default: 4)
   --top <k>            rows to print (default: 10)
+  --sort <key>         lines (default), commits, or gap between line and commit share
   -q, --quiet          suppress progress output on stderr
   --json               print JSON instead of a table
   --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
@@ -77,7 +78,7 @@ Exit status:
   1   error (invalid ref, shallow clone, or no files sampled)
   2   command-line option error`;
 
-/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, copies: boolean, jobs: number, top: number, quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
+/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
 
 /**
  * @param {string[]} argv
@@ -85,7 +86,7 @@ Exit status:
  */
 export function parseArgs(argv) {
   /** @type {Options} */
-  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], copies: false, jobs: 4, top: 10, quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
+  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], copies: false, jobs: 4, top: 10, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -104,6 +105,7 @@ export function parseArgs(argv) {
     else if (a === "--copies") o.copies = true;
     else if (a === "--jobs") { o.jobs = Number(next()); if (!Number.isInteger(o.jobs) || o.jobs < 1) throw new Error("--jobs must be an integer >= 1"); }
     else if (a === "--top") { o.top = Number(next()); if (!Number.isInteger(o.top) || o.top < 1) throw new Error("--top must be an integer >= 1"); }
+    else if (a === "--sort") { const sort = next(); if (!["lines", "commits", "gap"].includes(sort)) throw new Error("--sort must be lines, commits, or gap"); o.sort = /** @type {"lines" | "commits" | "gap"} */ (sort); }
     else if (a === "-q" || a === "--quiet") o.quiet = true;
     else if (a === "--json") o.json = true;
     else if (a === "--csv") o.csv = true;
@@ -380,19 +382,44 @@ export async function analyse(o) {
     authors.set(mail, a);
   }
 
-  const rows = [...authors.entries()]
-    .map(([mail, a]) => ({
-      author: a.name,
-      mail,
-      lines: a.lines,
-      lineShare: attributed ? a.lines / attributed : 0,
-      commits: a.commits,
-      commitShare: commits ? a.commits / commits : 0,
-    }))
-    .sort((x, y) => y.lines - x.lines || y.commits - x.commits || x.mail.localeCompare(y.mail));
+  /** @param {{ lines: number, commits: number, mail: string }} x @param {{ lines: number, commits: number, mail: string }} y */
+  const compareDefault = (x, y) => y.lines - x.lines || y.commits - x.commits || x.mail.localeCompare(y.mail);
+  const rows = [...authors.entries()].map(([mail, a]) => ({
+    author: a.name,
+    mail,
+    lines: a.lines,
+    lineShare: attributed ? a.lines / attributed : 0,
+    commits: a.commits,
+    commitShare: commits ? a.commits / commits : 0,
+  }));
+
+  if (o.sort === "commits") {
+    rows.sort((x, y) => y.commits - x.commits || compareDefault(x, y));
+  } else if (o.sort === "gap") {
+    // The common denominator lets this integer numerator preserve exact ties without float drift.
+    /** @param {{ lines: number, commits: number }} a */
+    const gapNumerator = (a) => {
+      const value = BigInt(a.lines) * BigInt(commits) - BigInt(a.commits) * BigInt(attributed);
+      return value < 0n ? -value : value;
+    };
+    rows.sort((x, y) => {
+      if (attributed > 0 && commits > 0) {
+        const xGap = gapNumerator(x);
+        const yGap = gapNumerator(y);
+        if (xGap !== yGap) return xGap > yGap ? -1 : 1;
+      } else {
+        const gapDifference = Math.abs(y.lineShare - y.commitShare) - Math.abs(x.lineShare - x.commitShare);
+        if (gapDifference !== 0) return gapDifference;
+      }
+      return compareDefault(x, y);
+    });
+  } else {
+    rows.sort(compareDefault);
+  }
 
   return {
     ref: o.ref,
+    sort: o.sort,
     shallow,
     sample: { every: o.sample, seed: o.seed, filesTotal: all.length, filesSampled: sampled.length, linesInRef: all.reduce((s, f) => s + f.lines, 0), linesAttributed: attributed },
     commitWindow: { since: o.since ?? null, until: o.until ?? null, commits, mergesExcluded: true },

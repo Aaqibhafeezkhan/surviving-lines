@@ -5,7 +5,7 @@
   "description": "schemaVersion changes when a key is removed, renamed or changes type. Adding a key does not change it.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "tool", "ref", "shallow", "sample", "commitWindow", "blame", "authors"],
+  "required": ["schemaVersion", "tool", "ref", "sort", "shallow", "sample", "commitWindow", "blame", "authors"],
   "properties": {
     "schemaVersion": { "type": "integer", "const": 1 },
     "tool": {
@@ -18,6 +18,7 @@
       }
     },
     "ref": { "type": "string", "description": "The revision as given on the command line." },
+    "sort": { "type": "string", "enum": ["lines", "commits", "gap"], "description": "The author row sort key: lines, commits, or absolute line-share versus commit-share gap." },
     "shallow": { "type": "boolean", "description": "True only when --allow-shallow ran in a shallow clone." },
     "sample": {
       "type": "object",

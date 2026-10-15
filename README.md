@@ -150,6 +150,7 @@ line of the table prints.
 --copies             pass -C to git blame as well as -w -M (slower, follows copies)
 --jobs <n>           parallel blame processes (default: 4)
 --top <k>            rows to print (default: 10)
+-q, --quiet          suppress progress output on stderr
 --json               print JSON instead of a table
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --markdown           print a Markdown table
@@ -157,6 +158,10 @@ line of the table prints.
 --allow-shallow      run in a shallow clone anyway; every output is marked "shallow clone"
 --cwd <dir>          repository directory (default: current directory)
 ```
+
+While blaming, an interactive run shows `blamed k/n files` on stderr, updated in place. Nothing is
+written when stderr is not a terminal, or with `--quiet`, so piped `--json` and `--csv` output stays
+clean. Contributed by [@Enard52](https://github.com/Enard52) ([#42](https://github.com/Bubblegunn/surviving-lines/pull/42)).
 
 Paths after `--` are passed to git as pathspecs, so `-- src packages/core` restricts both
 the blame and the commit count to those directories. A glob without a slash matches

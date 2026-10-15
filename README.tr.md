@@ -128,6 +128,7 @@ satırı zaten bunları basar.
 --copies             pass -C to git blame as well as -w -M (slower, follows copies)
 --jobs <n>           parallel blame processes (default: 4)
 --top <k>            rows to print (default: 10)
+--sort <key>         lines (default), commits, or gap (absolute share difference)
 --json               print JSON instead of a table
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --allow-shallow      run in a shallow clone anyway; every output is marked "shallow clone"
@@ -143,6 +144,11 @@ onu üreten komutla birlikte alıntılanabilir. Çıktı `schemaVersion` ve `too
 ile başlar; yapısı pakette gelen [`schema/surviving-lines.schema.json`](schema/surviving-lines.schema.json)
 dosyasında tarif edilir ve bir anahtar silindiğinde, adı ya da türü değiştiğinde `schemaVersion` artar. `--csv` elektronik tablolar için yazar başına bir
 satır verir.
+
+`--sort gap`, satır payı ile commit payı arasındaki mutlak farkı en büyük olandan başlayarak
+sıralar; eşitliklerde mevcut satır, commit ve adres sırası korunur. JSON, seçilen anahtarı
+`sort` alanında taşır ve şema bu alanı tanımlar. Bu özellik [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan)
+tarafından [#30 numaralı issue](https://github.com/Bubblegunn/surviving-lines/issues/30) için eklendi.
 
 ## Kim tek kişi
 

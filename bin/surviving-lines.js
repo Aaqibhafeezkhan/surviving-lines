@@ -54,6 +54,7 @@ Measure who wrote the code that is still alive in a git ref.
   --jobs <n>           parallel blame processes (default: 4)
   --top <k>            rows to print (default: 10)
   --sort <key>         lines (default), commits, or gap between line and commit share
+  -q, --quiet          suppress progress output on stderr
   --json               print JSON instead of a table
   --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
   --markdown           print a Markdown table
@@ -77,7 +78,7 @@ Exit status:
   1   error (invalid ref, shallow clone, or no files sampled)
   2   command-line option error`;
 
-/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[] }} Options */
+/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
 
 /**
  * @param {string[]} argv
@@ -85,7 +86,7 @@ Exit status:
  */
 export function parseArgs(argv) {
   /** @type {Options} */
-  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], copies: false, jobs: 4, top: 10, sort: "lines", json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
+  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], copies: false, jobs: 4, top: 10, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -105,6 +106,7 @@ export function parseArgs(argv) {
     else if (a === "--jobs") { o.jobs = Number(next()); if (!Number.isInteger(o.jobs) || o.jobs < 1) throw new Error("--jobs must be an integer >= 1"); }
     else if (a === "--top") { o.top = Number(next()); if (!Number.isInteger(o.top) || o.top < 1) throw new Error("--top must be an integer >= 1"); }
     else if (a === "--sort") { const sort = next(); if (!["lines", "commits", "gap"].includes(sort)) throw new Error("--sort must be lines, commits, or gap"); o.sort = /** @type {"lines" | "commits" | "gap"} */ (sort); }
+    else if (a === "-q" || a === "--quiet") o.quiet = true;
     else if (a === "--json") o.json = true;
     else if (a === "--csv") o.csv = true;
     else if (a === "--markdown") o.markdown = true;
@@ -332,6 +334,9 @@ export async function analyse(o) {
     throw new Error(`no files sampled from ${all.length} files with --sample ${o.sample}${o.seed ? ` and --seed "${o.seed}"` : ""}`);
   }
 
+  const errStream = o.stderr ?? process.stderr;
+  const showProgress = !o.quiet && Boolean(errStream && errStream.isTTY);
+
   /** @type {Map<string, { name: string, lines: number, commits: number }>} */
   const authors = new Map();
   let attributed = 0;
@@ -340,6 +345,8 @@ export async function analyse(o) {
   if (o.copies) blameArgs.push("-C");
 
   let cursor = 0;
+  let completed = 0;
+  const total = sampled.length;
   const worker = async () => {
     while (cursor < sampled.length) {
       const file = sampled[cursor++];
@@ -349,6 +356,11 @@ export async function analyse(o) {
         a.lines += lines;
         attributed += lines;
         authors.set(mail, a);
+      }
+      completed++;
+      if (showProgress) {
+        errStream.write(`\rblamed ${completed}/${total} files`);
+        if (completed === total) errStream.write("\n");
       }
     }
   };

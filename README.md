@@ -26,6 +26,13 @@ One file, no dependencies, Node 22 or newer, git 2.15 or newer, any repository `
 npx surviving-lines --sample 5 --include '**/*.ts' --exclude '**/*.test.ts'
 ```
 
+Install globally to use it through Git as well:
+
+```
+npm install --global surviving-lines
+git surviving-lines --version
+```
+
 ```
 ref HEAD  ·  files 50/203 sampled (1 in 5)  ·  14,722 of 59,049 lines attributed
 git blame -w -M  ·  commits 339, merges excluded
@@ -144,6 +151,7 @@ line of the table prints.
 --jobs <n>           parallel blame processes (default: 4)
 --top <k>            rows to print (default: 10)
 --sort <key>         lines (default), commits, or gap (absolute share difference)
+-q, --quiet          suppress progress output on stderr
 --json               print JSON instead of a table
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --markdown           print a Markdown table
@@ -151,6 +159,10 @@ line of the table prints.
 --allow-shallow      run in a shallow clone anyway; every output is marked "shallow clone"
 --cwd <dir>          repository directory (default: current directory)
 ```
+
+While blaming, an interactive run shows `blamed k/n files` on stderr, updated in place. Nothing is
+written when stderr is not a terminal, or with `--quiet`, so piped `--json` and `--csv` output stays
+clean. Contributed by [@Enard52](https://github.com/Enard52) ([#42](https://github.com/Bubblegunn/surviving-lines/pull/42)).
 
 Paths after `--` are passed to git as pathspecs, so `-- src packages/core` restricts both
 the blame and the commit count to those directories. A glob without a slash matches
@@ -335,6 +347,8 @@ this is the script, cleaned up so it runs anywhere.
 this repository, and shipped in 0.1.3. Reviewing it found something worth more than the feature:
 the only source file here held a literal NUL byte, so git had been calling it binary and no diff
 on it was readable, which is why the contributor could not see their own change on GitHub.
+
+[@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) added the `git surviving-lines` subcommand alias (issue [#29](https://github.com/Bubblegunn/surviving-lines/issues/29)).
 
 ## Cite this
 

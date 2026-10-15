@@ -2,6 +2,13 @@
 
 ## 0.2.3 (unreleased)
 
+**Run it as `git surviving-lines`.** Global installation now exposes `git-surviving-lines` as a second name for the existing CLI. The tarball smoke test checks both names with `--help` and `--version`, and fails when a declared bin target is missing. Contributed by [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) (issue [#29](https://github.com/Bubblegunn/surviving-lines/issues/29)).
+
+**Progress while blaming.** An interactive run now shows `blamed k/n files` on stderr, updated in place, so a
+`--sample 1` run on a large repository no longer prints nothing for minutes. Nothing is written when stderr is not
+a terminal, and `-q`/`--quiet` turns it off, so piped `--json` and `--csv` output is unchanged. Contributed by
+[@Enard52](https://github.com/Enard52) (issue [#31](https://github.com/Bubblegunn/surviving-lines/issues/31), [#42](https://github.com/Bubblegunn/surviving-lines/pull/42)).
+
 **Sort by lines, commits, or share gap.** `--sort gap` orders authors by the absolute percentage-point
 difference between line share and commit share, with the previous ordering as the tie-breaker. JSON
 records the selected `sort` key, which is required by the version 1 schema. Contributed by

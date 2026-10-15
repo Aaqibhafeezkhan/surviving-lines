@@ -18,7 +18,10 @@ if [ -n "$entry" ]; then
 else
   echo "no main or exports: command-line package, import step skipped"
 fi
-# Explicit failure branches make every declared executable part of the tarball smoke test.
+# Every declared executable is checked. `--` keeps npx from reading --help as its own option (npm 11
+# then exits 0 for a missing bin), and the explicit exit is needed because a failing command on the
+# left of `&&` does not trip `set -e`: until 2026-10-14 the bin check printed nothing and the script
+# still exited 0 when the bin path was broken.
 for bin in $bins; do
   npx --no -- "$bin" --help >/dev/null || { echo "bin failed: $bin --help" >&2; exit 1; }
   actual_version=$(npx --no -- "$bin" --version 2>/dev/null) || { echo "bin failed: $bin --version" >&2; exit 1; }

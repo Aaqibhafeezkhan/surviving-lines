@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.4
+## 0.2.4 (2026-10-16)
 
 **An empty run names the filter that emptied it.** A pathspec after `--` that matches nothing now stops with
 `no files matched the pathspec after --: <paths>`, and an `--exclude` that removes every file with

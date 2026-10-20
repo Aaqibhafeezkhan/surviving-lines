@@ -1,0 +1,7 @@
+{
+  "git-fame": { "version": "4.2.1", "license": "MPL-2.0", "use": "run as an oracle only; none of its code is copied or adapted" },
+  "git-who": { "repo": "https://github.com/sinclairtarget/git-who", "tag": "v1.3", "license": "MIT" },
+  "git-truck": { "npm": "git-truck", "version": "5.0.0", "license": "MIT" },
+  "hercules": { "repo": "https://github.com/src-d/hercules", "tag": "v10.7.2", "license": "Apache-2.0" },
+  "git-extras": { "repo": "https://github.com/tj/git-extras", "tag": "7.5.0", "license": "MIT" }
+}

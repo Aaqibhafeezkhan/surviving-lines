@@ -8,12 +8,12 @@ Machine: darwin arm64, node v24.13.0, git version 2.50.1 (Apple Git-155). Fixtur
 
 | Tool | Version | Licence | Used as |
 | --- | --- | --- | --- |
-| surviving-lines | 0.2.4 (commit f7517f3) | MIT | this repository |
+| surviving-lines | 0.2.4 (commit 1bf553a) | MIT | this repository |
 | git-fame | 4.2.1 | MPL-2.0 | oracle only: run, never copied |
 | git-who | v1.3 (commit aa656b04) | MIT License | run; `table` and `tree` |
 | git-extras | 7.5.0 (commit 2bdeb59a) | (The MIT License) | run `git summary --line` |
 | git-truck | 5.0.0 | MIT | installed; a browser tool with no printed numbers |
-| hercules | not installed | - | failed: /bin/sh: protoc: command not found \| make: *** [internal/pb/pb.pb.go] Error 127 |
+| hercules | not installed | none | failed: /bin/sh: protoc: command not found \| make: *** [internal/pb/pb.pb.go] Error 127 |
 
 No competitor code is copied into this repository. git-fame is MPL-2.0 and is only started as a program to read its output.
 
@@ -36,8 +36,8 @@ No competitor code is copied into this repository. git-fame is MPL-2.0 and is on
 | P13 | Several repositories in one run | git-fame (-R / several paths) | basic | one repository per run (issue #34) | aggregated: ada=22, bob=20 | ours lacks (stated loss) | stated loss |
 | P14 | Output formats | git-fame | basic | json, csv, markdown | json, csv, md, svg, yaml | ours lacks (stated loss) | ours has no svg, yaml |
 | P15 | Deterministic file sampling (--sample, --seed) | git-fame | wide | two runs agree: 27 of 120 files | no sampling option | ours only | same seed, same files, same numbers |
-| P16 | Suggest .mailmap lines for one person on two addresses | git-fame | split | found the split and printed .mailmap lines | no such option | ours only | git-fame only tells you to add a .mailmap |
-| P17 | Wall time, 120 files of 40 lines | git-fame | wide | 0.67 s for every file, 0.25 s with --sample 5 | 0.38 s | info | median of three runs on this machine; not a claim about large repositories (issue #35) |
+| P16 | Suggest .mailmap lines for one person on two addresses | git-fame | split | found the split and printed .mailmap lines | no such option | ours only | git-fame prints no suggestions and groups authors by name, so it merges one name on two addresses without saying so and never links two different names |
+| P17 | Wall time, 120 files of 40 lines | git-fame | wide | 0.73 s for every file, 0.38 s with --sample 5 | 0.44 s | info | median of three runs on this machine; not a claim about large repositories (issue #35) |
 | P18 | Visual workspace for a repository | git-truck | basic | terminal tables only | browser visualisation (installed 5.0.0) | ours lacks (stated loss) | stated loss; git-truck prints no numbers to compare |
 | P19 | Burndown of lines over time, per author | hercules | basic | a single point in time (issues #15, #18) | not run: could not be installed: /bin/sh: protoc: command not found \| make: *** [internal/pb/pb.pb.go] Error 127 | ours lacks (stated loss) | stated loss; hercules was last released in 2020 |
 
@@ -49,6 +49,7 @@ Features a competitor has and this tool does not. They stay on this page until t
 - A hosted badge and API for public GitHub repositories (git-fame). Not planned: the tool needs no server (ROADMAP.md).
 - Install through pip, conda, snap, docker or Homebrew (git-fame, git-extras). This tool installs with npm or npx only (Node 22 or newer).
 - A time series of surviving lines (hercules, git-of-theseus). Issues #15 and #18 are open.
+- A --since / --until window that also applies to the blame side (git-fame). Issue #11 is open.
 
 ## What a launch text may claim
 

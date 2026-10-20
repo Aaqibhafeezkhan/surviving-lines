@@ -179,7 +179,7 @@ export const PROBES = [
       const ours = oursText(dir, ["--identities"]);
       const theirs = runGitFame(dir, ["--identities"]);
       const found = ours.status === 0 && ours.stdout.includes("ada@laptop.example.org");
-      return { verdict: found && theirs.status === "unsupported" ? "ours-only" : "differs", ours: found ? "found the split and printed .mailmap lines" : "did not find it", theirs: theirs.status === "unsupported" ? "no such option" : theirs.status, note: "git-fame only tells you to add a .mailmap" };
+      return { verdict: found && theirs.status === "unsupported" ? "ours-only" : "differs", ours: found ? "found the split and printed .mailmap lines" : "did not find it", theirs: theirs.status === "unsupported" ? "no such option" : theirs.status, note: "git-fame prints no suggestions and groups authors by name, so it merges one name on two addresses without saying so and never links two different names" };
     },
   },
   {
@@ -213,4 +213,5 @@ export const LOSSES = [
   { feature: "A hosted badge and API for public GitHub repositories", who: "git-fame", issue: "Not planned: the tool needs no server (ROADMAP.md)." },
   { feature: "Install through pip, conda, snap, docker or Homebrew", who: "git-fame, git-extras", issue: "This tool installs with npm or npx only (Node 22 or newer)." },
   { feature: "A time series of surviving lines", who: "hercules, git-of-theseus", issue: "Issues #15 and #18 are open." },
+  { feature: "A --since / --until window that also applies to the blame side", who: "git-fame", issue: "Issue #11 is open." },
 ];

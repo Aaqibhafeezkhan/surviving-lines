@@ -17,7 +17,7 @@ const tools = [{ name: "surviving-lines", version: `${pkg.version} (commit ${hea
 const NOTES = { "git-fame": "oracle only: run, never copied", "git-who": "run; `table` and `tree`", "git-extras": "run `git summary --line`", "git-truck": "installed; a browser tool with no printed numbers", hercules: "build attempted" };
 for (const [name, t] of Object.entries(fetched)) {
   const v = /** @type {Record<string, string>} */ (t);
-  tools.push({ name, version: v.status === "ok" ? `${v.version}${v.commit ? ` (commit ${v.commit.slice(0, 8)})` : ""}` : "not installed", license: v.license ?? "-", note: v.status === "ok" ? NOTES[/** @type {keyof typeof NOTES} */ (name)] ?? "" : `failed: ${v.reason}` });
+  tools.push({ name, version: v.status === "ok" ? `${v.version}${v.commit ? ` (commit ${v.commit.slice(0, 8)})` : ""}` : "not installed", license: v.license ?? "none", note: v.status === "ok" ? NOTES[/** @type {keyof typeof NOTES} */ (name)] ?? "" : `failed: ${v.reason}` });
 }
 
 const gitVersion = execFileSync("git", ["--version"], { encoding: "utf8" }).trim();

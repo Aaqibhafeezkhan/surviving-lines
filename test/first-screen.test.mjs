@@ -23,3 +23,10 @@ test("package keywords carry the search phrases and have no duplicates", () => {
   }
   assert.equal(new Set(keywords).size, keywords.length);
 });
+
+test("COMPARISON.md states the blame-window loss and the name-grouping caveat, and has no bare hyphen cell", () => {
+  const doc = read("docs/COMPARISON.md");
+  assert.match(doc, /also applies to the blame side/, "stated loss for the --since window");
+  assert.match(doc, /groups authors by name/, "P16 caveat");
+  assert.doesNotMatch(doc, / \| - \| /, "an empty cell must read 'none', not a spaced hyphen");
+});

@@ -168,6 +168,8 @@ line of the table prints.
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --markdown           print a Markdown table
 --identities         list addresses that look like one person, with .mailmap lines
+--group-by <key>     one block per group of files: dir (top-level directories), dir:<n> (n levels deep), or ext
+--suggest-codeowners print CODEOWNERS lines for the groups, from the surviving lines (needs --group-by dir; never written)
 --include-bots       count bot identities as authors (default: leave them out of both shares)
 --ignore-revs-file <f>  skip the revisions listed in <f> when blaming (git 2.23 or newer);
                        default: .git-blame-ignore-revs at the repository root, when it exists
@@ -213,6 +215,16 @@ git blame -w -M  ·  commits 339, merges excluded
 
 … 76 more authors
 ```
+
+## Who owns which part
+
+`--group-by dir` splits the same measurement by top-level directory, `dir:2` by two levels, `ext` by file
+extension. Every block names the files it was sampled from, because a directory that rests on one file is a
+weak statement about a team. Commit share stays a whole-repository number and is not repeated per block.
+
+`--group-by dir --suggest-codeowners` also prints a `CODEOWNERS` line for each directory where one author holds
+at least half of the sampled surviving lines, and a comment for the others. Nothing is written. Who wrote the
+code that is left is not the same as who should review changes to it; treat the lines as a starting point.
 
 ## Who is one person
 

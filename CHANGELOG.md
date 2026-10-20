@@ -17,6 +17,13 @@ table says how many identities, lines and commits were left out, and `--json` li
 `--include-bots` counts them again. A person whose name only resembles a bot's (`Bot Hawkins`, `Botticelli`) is
 counted.
 
+**Who owns which part.** `--group-by dir` prints one block per top-level directory, `dir:<n>` goes `n` levels deep
+and `ext` groups by file extension. Each block has its own line shares and the number of sampled files it rests
+on, so a group that depends on one file says so; `--json` nests the groups under `grouping`. Bots are left out of a
+group's shares like everywhere else. `--suggest-codeowners` (with `--group-by dir`) prints CODEOWNERS lines for the
+directories where one author holds at least half of the sampled surviving lines, and a comment for the rest. It
+never writes a file.
+
 ## 0.2.4 (2026-10-16)
 
 **An empty run names the filter that emptied it.** A pathspec after `--` that matches nothing now stops with

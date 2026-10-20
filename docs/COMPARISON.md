@@ -8,7 +8,7 @@ Machine: darwin arm64, node v24.13.0, git version 2.50.1 (Apple Git-155). Fixtur
 
 | Tool | Version | Licence | Used as |
 | --- | --- | --- | --- |
-| surviving-lines | 0.2.4 (commit 1cb0ba9) | MIT | this repository |
+| surviving-lines | 0.2.4 (commit 4e53fe7) | MIT | this repository |
 | git-fame | 4.2.1 | MPL-2.0 | oracle only: run, never copied |
 | git-who | v1.3 (commit aa656b04) | MIT License | run; `table` and `tree` |
 | git-extras | 7.5.0 (commit 2bdeb59a) | (The MIT License) | run `git summary --line` |
@@ -31,13 +31,13 @@ No competitor code is copied into this repository. git-fame is MPL-2.0 and is on
 | P08 | Co-authored-by credit, equal split | git-fame (--auth share) | pairing | no such option | ada=19, bob=15, noreply=4; ada=2, bob=2.5, noreply=0.5 | ours lacks (stated loss) | not built yet |
 | P09 | An Assisted-by trailer with no address does not stop the run | git-fame (--auth share) | coauthor | no such option | them: AttributeError: 'NoneType' object has no attribute 'group' | ours lacks (stated loss) | not built yet |
 | P10 | AI-assistant breakdown from documented trailers | git-fame | coauthor | no such option | them: no such option | ours lacks (stated loss) | not built yet |
-| P11 | Surviving lines per file extension | git-fame (--bytype) | dirs | no such option | per-extension totals | ours lacks (stated loss) | not built yet |
-| P12 | Ownership per directory | git-who (tree) | dirs | no such option | tree view: author per path | ours lacks (stated loss) | not built yet |
+| P11 | Surviving lines per file extension | git-fame (--bytype) | dirs | .js=29, .md=9 | .md=9, .js=29 | tie | same totals per extension |
+| P12 | Ownership per directory | git-who (tree) | dirs | src: Bob 24 lines; docs: Ada 6 lines; lib: Bob 5 lines; .: Ada 3 lines | tree view: leading author per path, ranked by commits | differs | different measure: git-who ranks by edits, this tool by surviving lines |
 | P13 | Several repositories in one run | git-fame (-R / several paths) | basic | one repository per run (issue #34) | aggregated: ada=22, bob=20 | ours lacks (stated loss) | stated loss |
 | P14 | Output formats | git-fame | basic | json, csv, markdown | json, csv, md, svg, yaml | ours lacks (stated loss) | ours has no svg, yaml |
 | P15 | Deterministic file sampling (--sample, --seed) | git-fame | wide | two runs agree: 27 of 120 files | no sampling option | ours only | same seed, same files, same numbers |
 | P16 | Suggest .mailmap lines for one person on two addresses | git-fame | split | found the split and printed .mailmap lines | no such option | ours only | git-fame only tells you to add a .mailmap |
-| P17 | Wall time, 120 files of 40 lines | git-fame | wide | 0.63 s for every file, 0.21 s with --sample 5 | 0.42 s | info | median of three runs on this machine; not a claim about large repositories (issue #35) |
+| P17 | Wall time, 120 files of 40 lines | git-fame | wide | 0.65 s for every file, 0.26 s with --sample 5 | 0.42 s | info | median of three runs on this machine; not a claim about large repositories (issue #35) |
 | P18 | Visual workspace for a repository | git-truck | basic | terminal tables only | browser visualisation (installed 5.0.0) | ours lacks (stated loss) | stated loss; git-truck prints no numbers to compare |
 | P19 | Burndown of lines over time, per author | hercules | basic | a single point in time (issues #15, #18) | not run: could not be installed: /bin/sh: protoc: command not found \| make: *** [internal/pb/pb.pb.go] Error 127 | ours lacks (stated loss) | stated loss; hercules was last released in 2020 |
 
@@ -60,5 +60,6 @@ Only rows where the verdict is `tie` or `ours only`:
 - P04: Same surviving lines as a plain blame tally against git-extras (git summary --line) (tie)
 - P06: Blame ignore-revs file (a reformat commit does not take ownership) against git-fame (tie)
 - P07: Bots left out of both shares by default against git-fame (ours only)
+- P11: Surviving lines per file extension against git-fame (--bytype) (tie)
 - P15: Deterministic file sampling (--sample, --seed) against git-fame (ours only)
 - P16: Suggest .mailmap lines for one person on two addresses against git-fame (ours only)

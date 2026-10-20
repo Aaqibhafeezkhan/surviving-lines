@@ -52,6 +52,8 @@ Measure who wrote the code that is still alive in a git ref.
   --since <date>       commit-share window start (passed to git log)
   --until <date>       commit-share window end
   --copies             pass -C to git blame as well as -w -M (slower, follows copies)
+  --group-by <key>     one block per group of files: dir (top-level directories), dir:<n> (n levels deep), or ext
+  --suggest-codeowners print CODEOWNERS lines for the groups, from the surviving lines (needs --group-by dir; never written)
   --include-bots       count bot identities as authors (default: leave them out of both shares)
   --ignore-revs-file <f>  skip the revisions listed in <f> when blaming (git 2.23 or newer);
                        default: .git-blame-ignore-revs at the repository root, when it exists
@@ -83,7 +85,7 @@ Exit status:
   1   error (invalid ref, shallow clone, or no files sampled)
   2   command-line option error`;
 
-/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, includeBots: boolean, ignoreRevsFile?: string, noIgnoreRevs: boolean, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
+/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, groupBy?: string, suggestCodeowners: boolean, includeBots: boolean, ignoreRevsFile?: string, noIgnoreRevs: boolean, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
 
 /**
  * @param {string[]} argv
@@ -91,7 +93,7 @@ Exit status:
  */
 export function parseArgs(argv) {
   /** @type {Options} */
-  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], includeBots: false, noIgnoreRevs: false, copies: false, jobs: 4, top: 10, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
+  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], suggestCodeowners: false, includeBots: false, noIgnoreRevs: false, copies: false, jobs: 4, top: 10, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -108,6 +110,8 @@ export function parseArgs(argv) {
     else if (a === "--since") o.since = next();
     else if (a === "--until") o.until = next();
     else if (a === "--copies") o.copies = true;
+    else if (a === "--group-by") { o.groupBy = next(); parseGroupBy(o.groupBy); }
+    else if (a === "--suggest-codeowners") o.suggestCodeowners = true;
     else if (a === "--include-bots") o.includeBots = true;
     else if (a === "--ignore-revs-file") o.ignoreRevsFile = next();
     else if (a === "--no-ignore-revs") o.noIgnoreRevs = true;
@@ -128,11 +132,42 @@ export function parseArgs(argv) {
   if (o.ignoreRevsFile !== undefined && o.noIgnoreRevs) {
     throw new Error("--ignore-revs-file and --no-ignore-revs are mutually exclusive");
   }
+  const grouping = o.groupBy === undefined ? null : parseGroupBy(o.groupBy);
+  if (o.suggestCodeowners && grouping?.kind !== "dir") throw new Error("--suggest-codeowners needs --group-by dir or dir:<n>");
+  if (grouping && (o.csv || o.markdown || o.identities)) throw new Error("--group-by prints the table or --json; it cannot be combined with --csv, --markdown or --identities");
+  if (o.suggestCodeowners && o.json) throw new Error("--suggest-codeowners prints text; it cannot be combined with --json");
   const outputFormats = [o.json, o.csv, o.markdown, o.identities].filter(Boolean);
   if (outputFormats.length > 1) {
     throw new Error("--json, --csv, --markdown and --identities are mutually exclusive");
   }
   return o;
+}
+
+/**
+ * Read a --group-by value: `dir` (same as `dir:1`), `dir:<n>` with n >= 1, or `ext`.
+ * @param {string} spec
+ * @returns {{ kind: "dir", depth: number } | { kind: "ext" }}
+ */
+export function parseGroupBy(spec) {
+  if (spec === "ext") return { kind: "ext" };
+  const m = /^dir(?::(\d+))?$/.exec(spec);
+  const depth = m ? (m[1] === undefined ? 1 : Number(m[1])) : 0;
+  if (!m || depth < 1) throw new Error("--group-by must be dir, dir:<n> with n >= 1, or ext");
+  return { kind: "dir", depth };
+}
+
+/**
+ * The group a file belongs to. A file at the repository root is in ".". `ext` is the lowercased text after
+ * the last dot of the file name, or "(none)" for a name with no dot or only a leading one.
+ * @param {string} path
+ * @param {{ kind: "dir", depth: number } | { kind: "ext" }} g
+ */
+export function groupKey(path, g) {
+  const parts = path.split("/");
+  if (g.kind === "dir") return parts.slice(0, -1).slice(0, g.depth).join("/") || ".";
+  const base = parts[parts.length - 1];
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? base.slice(dot).toLowerCase() : "(none)";
 }
 
 /**
@@ -358,6 +393,26 @@ async function listTextFiles(o) {
 }
 
 /**
+ * Turn the per-group tallies into rows: bots out of the group's denominator (unless asked for),
+ * authors by lines then address, groups by lines then name. A group's file count is every sampled
+ * file in it, including a file whose lines all went to a bot, so a group resting on one file shows.
+ * @param {Map<string, { files: number, authors: Map<string, { name: string, lines: number }> }>} acc
+ * @param {boolean} includeBots
+ */
+function buildGroups(acc, includeBots) {
+  return [...acc.entries()]
+    .map(([key, g]) => {
+      const kept = [...g.authors.entries()].filter(([mail, a]) => includeBots || !isBotIdentity(a.name, mail));
+      const lines = kept.reduce((sum, [, a]) => sum + a.lines, 0);
+      const authors = kept
+        .map(([mail, a]) => ({ author: a.name, mail, lines: a.lines, lineShare: lines ? a.lines / lines : 0 }))
+        .sort((x, y) => y.lines - x.lines || x.mail.localeCompare(y.mail));
+      return { key, filesSampled: g.files, lines, authors };
+    })
+    .sort((x, y) => y.lines - x.lines || x.key.localeCompare(y.key));
+}
+
+/**
  * @param {Options} o
  */
 export async function analyse(o) {
@@ -435,6 +490,9 @@ export async function analyse(o) {
     shownFlags.push("--ignore-revs-file", ignoreRevs.display);
   }
 
+  const grouping = o.groupBy === undefined ? null : parseGroupBy(o.groupBy);
+  /** @type {Map<string, { files: number, authors: Map<string, { name: string, lines: number }> }>} */
+  const groupAcc = new Map();
   let cursor = 0;
   let completed = 0;
   const total = sampled.length;
@@ -442,11 +500,23 @@ export async function analyse(o) {
     while (cursor < sampled.length) {
       const file = sampled[cursor++];
       const out = await git([...blameArgs, o.ref, "--", file.path], o.cwd);
-      for (const [mail, { name, lines }] of countBlameLines(out)) {
+      const counts = countBlameLines(out);
+      for (const [mail, { name, lines }] of counts) {
         const a = authors.get(mail) ?? { name, lines: 0, commits: 0 };
         a.lines += lines;
         attributed += lines;
         authors.set(mail, a);
+      }
+      if (grouping) {
+        const key = groupKey(file.path, grouping);
+        const g = groupAcc.get(key) ?? { files: 0, authors: new Map() };
+        g.files++;
+        for (const [mail, { name, lines }] of counts) {
+          const a = g.authors.get(mail) ?? { name, lines: 0 };
+          a.lines += lines;
+          g.authors.set(mail, a);
+        }
+        groupAcc.set(key, g);
       }
       completed++;
       if (showProgress) {
@@ -522,12 +592,14 @@ export async function analyse(o) {
     rows.sort(compareDefault);
   }
 
+  const groups = grouping ? buildGroups(groupAcc, o.includeBots) : null;
   return {
     ref: o.ref,
     sort: o.sort,
     shallow,
     sample: { every: o.sample, seed: o.seed, filesTotal: all.length, filesSampled: sampled.length, linesInRef: all.reduce((s, f) => s + f.lines, 0), linesAttributed: attributed },
     commitWindow: { since: o.since ?? null, until: o.until ?? null, commits, mergesExcluded: true },
+    grouping: grouping && groups ? { by: grouping.kind === "dir" ? `dir:${grouping.depth}` : "ext", groups } : null,
     bots: { included: o.includeBots, excluded: botRows },
     blame: { flags: shownFlags, ignoreRevsFile: ignoreRevs ? ignoreRevs.display : null },
     authors: rows,
@@ -691,6 +763,72 @@ export function renderTable(r, top) {
   lines.push("What this cannot show: quality of the lines, review work, design done in documents,");
   lines.push("or code that was deleted on purpose. Share of surviving lines is about survivorship, not merit.");
   return lines.join("\n");
+}
+
+/**
+ * One block per group: its name, how many sampled files it rests on, and its authors' line shares.
+ * Commit share stays a whole-repository number, so it is not repeated here.
+ * @param {Awaited<ReturnType<typeof analyse>>} r
+ * @param {number} top
+ */
+export function renderGroups(r, top) {
+  const lines = [];
+  lines.push(headerLine(r));
+  const w = r.commitWindow;
+  lines.push(`git blame ${r.blame.flags.join(" ")}  ·  commits ${w.commits.toLocaleString("en-US")}${w.since || w.until ? ` in window ${w.since ?? "…"} to ${w.until ?? "…"}` : ""}, merges excluded`);
+  const excludedBots = botsLine(r);
+  if (excludedBots) lines.push(excludedBots);
+  const nameCount = new Map();
+  for (const a of r.authors) nameCount.set(a.author, (nameCount.get(a.author) ?? 0) + 1);
+  const label = (/** @type {{author: string, mail: string}} */ a) => isolate((nameCount.get(a.author) ?? 0) > 1 ? `${a.author} <${a.mail}>` : a.author);
+  for (const g of r.grouping?.groups ?? []) {
+    lines.push("");
+    lines.push(`${g.key}  ·  ${g.filesSampled} file${g.filesSampled === 1 ? "" : "s"} sampled  ·  ${g.lines.toLocaleString("en-US")} lines`);
+    const rows = g.authors.slice(0, top);
+    const nameW = Math.max(6, ...rows.map((a) => displayWidth(label(a))));
+    const head = `${padEndDisplay("author", nameW)}  ${"lines".padStart(9)}  ${"share".padStart(6)}`;
+    lines.push(head);
+    lines.push("-".repeat(displayWidth(head)));
+    for (const a of rows) lines.push(`${padEndDisplay(label(a), nameW)}  ${a.lines.toLocaleString("en-US").padStart(9)}  ${pct(a.lineShare).padStart(6)}`);
+    if (g.authors.length > top) lines.push(`… ${g.authors.length - top} more author${g.authors.length - top === 1 ? "" : "s"}`);
+  }
+  lines.push("");
+  lines.push("What this cannot show: quality of the lines, review work, design done in documents,");
+  lines.push("or code that was deleted on purpose. Share of surviving lines is about survivorship, not merit.");
+  return lines.join("\n");
+}
+
+/** A top author must hold at least this share of a directory's surviving lines to be suggested as its owner. */
+export const OWNER_THRESHOLD = 0.5;
+
+/**
+ * CODEOWNERS lines for a `--group-by dir` result. Printed, never written. A directory gets an owner
+ * only when one author holds at least OWNER_THRESHOLD of its sampled surviving lines; otherwise the
+ * line is a comment that says so. Files at the root are skipped: the pattern that matches only them
+ * does not exist, and `/*` would also match every directory.
+ * @param {Awaited<ReturnType<typeof analyse>>} r
+ */
+export function renderCodeowners(r) {
+  const out = ["# CODEOWNERS suggestions from sampled surviving lines. Printed only; nothing was written.", "# Surviving lines say who wrote the code that is left, not who should review changes to it."];
+  // A later CODEOWNERS pattern overrides an earlier one, so a directory is listed before the directories inside it.
+  const ordered = [...(r.grouping?.groups ?? [])].sort((x, y) => x.key.localeCompare(y.key));
+  for (const g of ordered) {
+    if (g.key === ".") {
+      out.push("# (files at the repository root) skipped: a CODEOWNERS pattern for them would also match every directory");
+      continue;
+    }
+    const top = g.authors[0];
+    const basis = `${g.filesSampled} sampled file${g.filesSampled === 1 ? "" : "s"}`;
+    if (!top) {
+      out.push(`# /${g.key}/ no surviving lines in ${basis}`);
+    } else if (top.lineShare >= OWNER_THRESHOLD) {
+      const login = githubLogin(top.mail);
+      out.push(`/${g.key}/ ${login ? `@${login}` : top.mail}  # ${top.author} holds ${pct(top.lineShare)} of ${g.lines.toLocaleString("en-US")} lines in ${basis}`);
+    } else {
+      out.push(`# /${g.key}/ no author holds half of ${g.lines.toLocaleString("en-US")} lines in ${basis}; top is ${top.author} at ${pct(top.lineShare)}`);
+    }
+  }
+  return out.join("\n");
 }
 
 /**
@@ -955,6 +1093,9 @@ async function main() {
     } else if (o.identities) {
       output = renderIdentities(linkIdentities(r.authors));
       if (r.shallow) output = `${SHALLOW_MARK}\n\n${output}`;
+    } else if (r.grouping) {
+      output = renderGroups(r, o.top);
+      if (o.suggestCodeowners) output += `\n\n${renderCodeowners(r)}`;
     } else {
       output = renderTable(r, o.top);
     }

@@ -147,6 +147,8 @@ satırı zaten bunları basar.
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --markdown           print a Markdown table
 --identities         list addresses that look like one person, with .mailmap lines
+--group-by <key>     one block per group of files: dir (top-level directories), dir:<n> (n levels deep), or ext
+--suggest-codeowners print CODEOWNERS lines for the groups, from the surviving lines (needs --group-by dir; never written)
 --include-bots       count bot identities as authors (default: leave them out of both shares)
 --ignore-revs-file <f>  skip the revisions listed in <f> when blaming (git 2.23 or newer);
                        default: .git-blame-ignore-revs at the repository root, when it exists

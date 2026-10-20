@@ -52,6 +52,9 @@ Measure who wrote the code that is still alive in a git ref.
   --since <date>       commit-share window start (passed to git log)
   --until <date>       commit-share window end
   --copies             pass -C to git blame as well as -w -M (slower, follows copies)
+  --co-authors <mode>  none (default) or share: split each line and commit equally between the author
+                       and the Co-authored-by trailer identities (.mailmap applies to them)
+  --ai-breakdown       also print surviving lines and commits whose message trailers name an AI assistant
   --group-by <key>     one block per group of files: dir (top-level directories), dir:<n> (n levels deep), or ext
   --suggest-codeowners print CODEOWNERS lines for the groups, from the surviving lines (needs --group-by dir; never written)
   --include-bots       count bot identities as authors (default: leave them out of both shares)
@@ -85,7 +88,8 @@ Exit status:
   1   error (invalid ref, shallow clone, or no files sampled)
   2   command-line option error`;
 
-/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, groupBy?: string, suggestCodeowners: boolean, includeBots: boolean, ignoreRevsFile?: string, noIgnoreRevs: boolean, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
+/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, coAuthors: "none" | "share", aiBreakdown: boolean,
+groupBy?: string, suggestCodeowners: boolean, includeBots: boolean, ignoreRevsFile?: string, noIgnoreRevs: boolean, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
 
 /**
  * @param {string[]} argv
@@ -93,7 +97,7 @@ Exit status:
  */
 export function parseArgs(argv) {
   /** @type {Options} */
-  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], suggestCodeowners: false, includeBots: false, noIgnoreRevs: false, copies: false, jobs: 4, top: 10, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
+  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], coAuthors: "none", aiBreakdown: false, suggestCodeowners: false, includeBots: false, noIgnoreRevs: false, copies: false, jobs: 4, top: 10, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -110,6 +114,8 @@ export function parseArgs(argv) {
     else if (a === "--since") o.since = next();
     else if (a === "--until") o.until = next();
     else if (a === "--copies") o.copies = true;
+    else if (a === "--co-authors") { const mode = next(); if (mode !== "none" && mode !== "share") throw new Error("--co-authors must be none or share"); o.coAuthors = mode; }
+    else if (a === "--ai-breakdown") o.aiBreakdown = true;
     else if (a === "--group-by") { o.groupBy = next(); parseGroupBy(o.groupBy); }
     else if (a === "--suggest-codeowners") o.suggestCodeowners = true;
     else if (a === "--include-bots") o.includeBots = true;
@@ -136,11 +142,97 @@ export function parseArgs(argv) {
   if (o.suggestCodeowners && grouping?.kind !== "dir") throw new Error("--suggest-codeowners needs --group-by dir or dir:<n>");
   if (grouping && (o.csv || o.markdown || o.identities)) throw new Error("--group-by prints the table or --json; it cannot be combined with --csv, --markdown or --identities");
   if (o.suggestCodeowners && o.json) throw new Error("--suggest-codeowners prints text; it cannot be combined with --json");
+  if (grouping && o.coAuthors === "share") throw new Error("--co-authors share cannot be combined with --group-by yet");
+  if (o.aiBreakdown && (o.csv || o.identities)) throw new Error("--ai-breakdown prints with the table, --markdown or --json; it cannot be combined with --csv or --identities");
   const outputFormats = [o.json, o.csv, o.markdown, o.identities].filter(Boolean);
   if (outputFormats.length > 1) {
     throw new Error("--json, --csv, --markdown and --identities are mutually exclusive");
   }
   return o;
+}
+
+/**
+ * Documented AI-assistant trailers. An entry is here only when the tool's own documentation or source says it writes
+ * this identity into a `Co-authored-by:` trailer; the source is kept beside the entry so a reader can check it. Nothing
+ * is guessed from a commit's content, its time or its style: no trailer, no assistant.
+ * `Assisted-by:` is handled separately (see assistantsIn): the Linux kernel's Documentation/process/coding-assistants.rst
+ * documents it as `Assisted-by: AGENT_NAME:MODEL_VERSION [TOOL1] [TOOL2]`.
+ * @type {{ name: string, mail: RegExp, example: string, source: string }[]}
+ */
+export const AI_ASSISTANTS = [
+  { name: "Claude", mail: /^noreply@anthropic\.com$/i, example: "Claude <noreply@anthropic.com>", source: "https://code.claude.com/docs/en/settings (commit attribution)" },
+  { name: "aider", mail: /^aider@aider\.chat$/i, example: "aider (gpt-4) <aider@aider.chat>", source: "https://raw.githubusercontent.com/Aider-AI/aider/main/aider/repo.py" },
+];
+
+/**
+ * The trailers of a commit message that this tool reads: `Co-authored-by:` with an address, and
+ * `Assisted-by:`. Only the last paragraph counts, and only when the message has more than one, which is where git puts
+ * trailers; a line in prose that starts with the same words is not a trailer. Keys are matched ignoring case.
+ * @param {string} message
+ * @returns {{ coAuthors: { name: string, mail: string }[], assistedBy: string[] }}
+ */
+export function parseTrailers(message) {
+  const paragraphs = message.replace(/\r\n/g, "\n").trim().split(/\n[ \t]*\n/);
+  /** @type {{ coAuthors: { name: string, mail: string }[], assistedBy: string[] }} */
+  const found = { coAuthors: [], assistedBy: [] };
+  if (paragraphs.length < 2) return found;
+  for (const line of paragraphs[paragraphs.length - 1].split("\n")) {
+    const m = /^([A-Za-z][A-Za-z0-9-]*):[ \t]*(.*?)\s*$/.exec(line);
+    if (!m) continue;
+    const key = m[1].toLowerCase();
+    if (key === "co-authored-by") {
+      const who = /^(.*?)\s*<([^<>\s]+@[^<>\s]+)>$/.exec(m[2]);
+      if (who) found.coAuthors.push({ name: who[1].trim(), mail: who[2].toLowerCase() });
+    } else if (key === "assisted-by" && m[2]) {
+      found.assistedBy.push(m[2]);
+    }
+  }
+  return found;
+}
+
+/**
+ * The assistants a commit's trailers name, once each: a co-author whose address is in AI_ASSISTANTS, and the agent
+ * name at the start of every `Assisted-by:` value (the text before the first colon or space).
+ * @param {{ coAuthors: { name: string, mail: string }[], assistedBy: string[] }} t
+ * @returns {string[]}
+ */
+export function assistantsIn(t) {
+  /** @type {Set<string>} */
+  const names = new Set();
+  for (const c of t.coAuthors) {
+    const hit = AI_ASSISTANTS.find((a) => a.mail.test(c.mail));
+    if (hit) names.add(hit.name);
+  }
+  for (const v of t.assistedBy) {
+    const agent = v.split(/[:\s]/)[0];
+    if (agent) names.add(agent);
+  }
+  return [...names];
+}
+
+/**
+ * Lines per blamed commit, from `git blame --line-porcelain`: every line repeats its commit's headers, so the
+ * commit id on the header line and the author-mail line after it are enough.
+ * @param {string} porcelain
+ * @returns {Map<string, { name: string, mail: string, lines: number }>}
+ */
+export function countBlameByCommit(porcelain) {
+  /** @type {Map<string, { name: string, mail: string, lines: number }>} */
+  const counts = new Map();
+  let sha = "";
+  let name = "";
+  for (const line of porcelain.split("\n")) {
+    const header = /^([0-9a-f]{40}|[0-9a-f]{64}) \d+ \d+/.exec(line);
+    if (header) sha = header[1];
+    else if (line.startsWith("author ")) name = line.slice(7);
+    else if (line.startsWith("author-mail ")) {
+      const mail = line.slice(12).replace(/^<|>$/g, "").toLowerCase();
+      const entry = counts.get(sha) ?? { name, mail, lines: 0 };
+      entry.lines++;
+      counts.set(sha, entry);
+    }
+  }
+  return counts;
 }
 
 /**
@@ -393,6 +485,125 @@ async function listTextFiles(o) {
 }
 
 /**
+ * Run git with text on stdin and return what it printed.
+ * @param {string[]} args
+ * @param {string} input
+ * @param {string} cwd
+ * @returns {Promise<string>}
+ */
+function gitWithInput(args, input, cwd) {
+  return new Promise((resolveOut, reject) => {
+    const child = spawn("git", ["-c", "core.precomposeunicode=false", ...args], { cwd });
+    let out = "";
+    let err = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (d) => (out += d));
+    child.stderr.on("data", (d) => (err += d));
+    child.on("error", reject);
+    child.on("close", (code) => (code === 0 ? resolveOut(out) : reject(new Error(err.trim() || `git exited ${code}`))));
+    child.stdin.end(input);
+  });
+}
+
+/**
+ * Trailers of every commit that has any, keyed by commit id.
+ * @param {Options} o
+ * @returns {Promise<Map<string, ReturnType<typeof parseTrailers>>>}
+ */
+async function readTrailers(o) {
+  const out = await git(["log", "--format=%H%x1f%B%x1e", o.ref], o.cwd);
+  /** @type {Map<string, ReturnType<typeof parseTrailers>>} */
+  const byCommit = new Map();
+  for (const record of out.split("\x1e")) {
+    const [sha, message] = record.replace(/^\n/, "").split("\x1f");
+    if (!sha || message === undefined) continue;
+    const t = parseTrailers(message);
+    if (t.coAuthors.length || t.assistedBy.length) byCommit.set(sha, t);
+  }
+  return byCommit;
+}
+
+/**
+ * The commits the commit-share side counted, with their authors, in the same window and pathspec.
+ * @param {Options} o
+ * @returns {Promise<{ sha: string, mail: string, name: string }[]>}
+ */
+async function readWindowCommits(o) {
+  const args = ["log", "--no-merges", "--format=%H%x09%aE%x09%aN", o.ref];
+  if (o.since) args.push(`--since=${o.since}`);
+  if (o.until) args.push(`--until=${o.until}`);
+  args.push("--", ...o.paths);
+  const out = await git(args, o.cwd);
+  return out
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => {
+      const [sha, mail, name] = line.split("\t");
+      return { sha, mail: mail.toLowerCase(), name };
+    });
+}
+
+/**
+ * Pass identities through the repository's .mailmap with `git check-mailmap`, so a trailer written with an
+ * old address is credited to the same person as a commit written with the new one.
+ * @param {string} cwd
+ * @param {{ name: string, mail: string }[]} people
+ * @returns {Promise<{ name: string, mail: string }[]>}
+ */
+async function mapIdentities(cwd, people) {
+  if (people.length === 0) return [];
+  const out = await gitWithInput(["check-mailmap", "--stdin"], people.map((p) => `${p.name} <${p.mail}>`).join("\n") + "\n", cwd);
+  const mapped = out.split("\n").filter(Boolean);
+  return people.map((p, i) => {
+    const m = /^(.*?)\s*<([^>]*)>$/.exec(mapped[i] ?? "");
+    return m ? { name: m[1], mail: m[2].toLowerCase() } : p;
+  });
+}
+
+/** @param {number} x */
+const round6 = (x) => Math.round(x * 1e6) / 1e6;
+
+/**
+ * `--co-authors share`: each blamed commit's lines, and each window commit, are split equally between its author
+ * and the distinct identities in its Co-authored-by trailers. The totals do not change, only who holds them.
+ * @param {Map<string, { name: string, mail: string, lines: number }>} blamed lines per blamed commit
+ * @param {{ sha: string, mail: string, name: string }[]} window
+ * @param {Map<string, { name: string, mail: string }[]>} coAuthorsOf mapped co-authors per commit id
+ * @returns {Map<string, { name: string, lines: number, commits: number }>}
+ */
+export function shareCredit(blamed, window, coAuthorsOf) {
+  /** @type {Map<string, { name: string, lines: number, commits: number }>} */
+  const out = new Map();
+  /** @param {string} sha @param {{ name: string, mail: string }} author */
+  const people = (sha, author) => {
+    const all = [author];
+    for (const c of coAuthorsOf.get(sha) ?? []) if (!all.some((p) => p.mail === c.mail)) all.push(c);
+    return all;
+  };
+  /** @param {{ name: string, mail: string }} p @param {number} lines @param {number} commits */
+  const add = (p, lines, commits) => {
+    const e = out.get(p.mail) ?? { name: p.name, lines: 0, commits: 0 };
+    e.lines += lines;
+    e.commits += commits;
+    out.set(p.mail, e);
+  };
+  for (const [sha, b] of blamed) {
+    const all = people(sha, { name: b.name, mail: b.mail });
+    for (const p of all) add(p, b.lines / all.length, 0);
+  }
+  for (const c of window) {
+    const all = people(c.sha, { name: c.name, mail: c.mail });
+    for (const p of all) add(p, 0, 1 / all.length);
+  }
+  for (const e of out.values()) {
+    e.lines = round6(e.lines);
+    e.commits = round6(e.commits);
+  }
+  return out;
+}
+
+/**
  * Turn the per-group tallies into rows: bots out of the group's denominator (unless asked for),
  * authors by lines then address, groups by lines then name. A group's file count is every sampled
  * file in it, including a file whose lines all went to a bot, so a group resting on one file shows.
@@ -493,6 +704,9 @@ export async function analyse(o) {
   const grouping = o.groupBy === undefined ? null : parseGroupBy(o.groupBy);
   /** @type {Map<string, { files: number, authors: Map<string, { name: string, lines: number }> }>} */
   const groupAcc = new Map();
+  const needTrailers = o.coAuthors === "share" || o.aiBreakdown;
+  /** @type {Map<string, { name: string, mail: string, lines: number }>} */
+  const blamedByCommit = new Map();
   let cursor = 0;
   let completed = 0;
   const total = sampled.length;
@@ -506,6 +720,13 @@ export async function analyse(o) {
         a.lines += lines;
         attributed += lines;
         authors.set(mail, a);
+      }
+      if (needTrailers) {
+        for (const [sha, c] of countBlameByCommit(out)) {
+          const e = blamedByCommit.get(sha) ?? { name: c.name, mail: c.mail, lines: 0 };
+          e.lines += c.lines;
+          blamedByCommit.set(sha, e);
+        }
       }
       if (grouping) {
         const key = groupKey(file.path, grouping);
@@ -543,6 +764,25 @@ export async function analyse(o) {
     authors.set(mail, a);
   }
 
+  /** @type {Map<string, ReturnType<typeof parseTrailers>>} */
+  let trailers = new Map();
+  /** @type {{ sha: string, mail: string, name: string }[]} */
+  let windowCommits = [];
+  if (needTrailers) {
+    trailers = await readTrailers(o);
+    windowCommits = await readWindowCommits(o);
+  }
+  if (o.coAuthors === "share") {
+    const flat = [...trailers.entries()].flatMap(([sha, t]) => t.coAuthors.map((c) => ({ sha, ...c })));
+    const mapped = await mapIdentities(o.cwd, flat);
+    /** @type {Map<string, { name: string, mail: string }[]>} */
+    const coAuthorsOf = new Map();
+    flat.forEach((f, i) => coAuthorsOf.set(f.sha, [...(coAuthorsOf.get(f.sha) ?? []), mapped[i]]));
+    const credited = shareCredit(blamedByCommit, windowCommits, coAuthorsOf);
+    authors.clear();
+    for (const [mail, c] of credited) authors.set(mail, c);
+  }
+
   // Bots leave both sides together, so the two shares keep one set of people as their denominator.
   /** @type {{ author: string, mail: string, lines: number, commits: number }[]} */
   const botRows = [];
@@ -555,8 +795,44 @@ export async function analyse(o) {
       authors.delete(mail);
     }
     botRows.sort((x, y) => y.lines - x.lines || y.commits - x.commits || x.mail.localeCompare(y.mail));
+    // Under --co-authors share a bot can hold half a line; keep the totals free of float drift.
+    attributed = round6(attributed);
+    commits = round6(commits);
   }
 
+  /** @type {null | { lines: number, lineShare: number, commits: number, commitShare: number, assistants: { name: string, lines: number, commits: number }[] }} */
+  let aiAssisted = null;
+  if (o.aiBreakdown) {
+    const keep = (/** @type {string} */ name, /** @type {string} */ mail) => o.includeBots || !isBotIdentity(name, mail);
+    /** @type {Map<string, { lines: number, commits: number }>} */
+    const per = new Map();
+    let aiLines = 0;
+    let aiCommits = 0;
+    let humanCommits = 0;
+    for (const [sha, b] of blamedByCommit) {
+      const t = trailers.get(sha);
+      const names = t ? assistantsIn(t) : [];
+      if (!names.length || !keep(b.name, b.mail)) continue;
+      aiLines += b.lines;
+      for (const n of names) per.set(n, { lines: (per.get(n)?.lines ?? 0) + b.lines, commits: per.get(n)?.commits ?? 0 });
+    }
+    for (const c of windowCommits) {
+      if (!keep(c.name, c.mail)) continue;
+      humanCommits++;
+      const t = trailers.get(c.sha);
+      const names = t ? assistantsIn(t) : [];
+      if (!names.length) continue;
+      aiCommits++;
+      for (const n of names) per.set(n, { lines: per.get(n)?.lines ?? 0, commits: (per.get(n)?.commits ?? 0) + 1 });
+    }
+    aiAssisted = {
+      lines: aiLines,
+      lineShare: attributed ? aiLines / attributed : 0,
+      commits: aiCommits,
+      commitShare: humanCommits ? aiCommits / humanCommits : 0,
+      assistants: [...per.entries()].map(([name, v]) => ({ name, ...v })).sort((x, y) => y.lines - x.lines || y.commits - x.commits || x.name.localeCompare(y.name)),
+    };
+  }
   /** @param {{ lines: number, commits: number, mail: string }} x @param {{ lines: number, commits: number, mail: string }} y */
   const compareDefault = (x, y) => y.lines - x.lines || y.commits - x.commits || x.mail.localeCompare(y.mail);
   const rows = [...authors.entries()].map(([mail, a]) => ({
@@ -599,6 +875,8 @@ export async function analyse(o) {
     shallow,
     sample: { every: o.sample, seed: o.seed, filesTotal: all.length, filesSampled: sampled.length, linesInRef: all.reduce((s, f) => s + f.lines, 0), linesAttributed: attributed },
     commitWindow: { since: o.since ?? null, until: o.until ?? null, commits, mergesExcluded: true },
+    coAuthors: o.coAuthors,
+    aiAssisted,
     grouping: grouping && groups ? { by: grouping.kind === "dir" ? `dir:${grouping.depth}` : "ext", groups } : null,
     bots: { included: o.includeBots, excluded: botRows },
     blame: { flags: shownFlags, ignoreRevsFile: ignoreRevs ? ignoreRevs.display : null },
@@ -722,6 +1000,34 @@ function headerLine(r) {
 }
 
 /**
+ * The words that say Co-authored-by trailers moved lines and commits between people, or an empty string.
+ * @param {{ coAuthors?: "none" | "share" }} r
+ */
+function coAuthorsNote(r) {
+  return r.coAuthors === "share" ? "  ·  Co-authored-by trailers share lines and commits equally" : "";
+}
+
+/**
+ * The AI-assistant block for --ai-breakdown, or null when it was not asked for. It counts trailers and says so.
+ * @param {{ aiAssisted?: null | { lines: number, lineShare: number, commits: number, commitShare: number, assistants: { name: string, lines: number, commits: number }[] } }} r
+ * @param {{ linesAttributed: number }} sample
+ * @param {number} windowCommits
+ * @returns {string | null}
+ */
+export function renderAiBreakdown(r, sample, windowCommits) {
+  const a = r.aiAssisted;
+  if (!a) return null;
+  const n = (/** @type {number} */ x) => x.toLocaleString("en-US");
+  const out = ["AI-assisted, counted from commit trailers (Co-authored-by: with a documented assistant address, Assisted-by:):"];
+  out.push(`  lines    ${n(a.lines)} of ${n(sample.linesAttributed)} attributed (${pct(a.lineShare)})`);
+  out.push(`  commits  ${n(a.commits)} of ${n(windowCommits)} (${pct(a.commitShare)})`);
+  for (const x of a.assistants) out.push(`  ${x.name}  ${n(x.lines)} line${x.lines === 1 ? "" : "s"}, ${n(x.commits)} commit${x.commits === 1 ? "" : "s"}`);
+  out.push("A trailer records that a tool was named in the message. It does not say how much of a line the tool wrote,");
+  out.push("and a commit without a trailer may still have had help. Nothing here is guessed from the code.");
+  return out.join("\n");
+}
+
+/**
  * The line that says bots were left out, or null when none were. Silent filtering in a tool about
  * attribution would be the wrong default.
  * @param {{ bots?: { included: boolean, excluded: { lines: number, commits: number }[] } }} r
@@ -743,7 +1049,7 @@ export function renderTable(r, top) {
   const lines = [];
   lines.push(headerLine(r));
   const w = r.commitWindow;
-  lines.push(`git blame ${r.blame.flags.join(" ")}  ·  commits ${w.commits.toLocaleString("en-US")}${w.since || w.until ? ` in window ${w.since ?? "…"} to ${w.until ?? "…"}` : ""}, merges excluded`);
+  lines.push(`git blame ${r.blame.flags.join(" ")}  ·  commits ${w.commits.toLocaleString("en-US")}${w.since || w.until ? ` in window ${w.since ?? "…"} to ${w.until ?? "…"}` : ""}, merges excluded${coAuthorsNote(r)}`);
   const excludedBots = botsLine(r);
   if (excludedBots) lines.push(excludedBots);
   lines.push("");
@@ -851,7 +1157,7 @@ export function renderMarkdown(r, top) {
   lines.push(headerLine(r));
   const w = r.commitWindow;
   lines.push(
-    `git blame ${r.blame.flags.join(" ")}  ·  commits ${w.commits.toLocaleString("en-US")}${w.since || w.until ? ` in window ${w.since ?? "…"} to ${w.until ?? "…"}` : ""}, merges excluded`
+    `git blame ${r.blame.flags.join(" ")}  ·  commits ${w.commits.toLocaleString("en-US")}${w.since || w.until ? ` in window ${w.since ?? "…"} to ${w.until ?? "…"}` : ""}, merges excluded${coAuthorsNote(r)}`
   );
   const excludedBots = botsLine(r);
   if (excludedBots) lines.push(excludedBots);
@@ -1099,6 +1405,8 @@ async function main() {
     } else {
       output = renderTable(r, o.top);
     }
+    const ai = o.json ? null : renderAiBreakdown(r, r.sample, r.commitWindow.commits);
+    if (ai) output += `\n\n${ai}`;
     console.log(output);
 
   } catch (err) {

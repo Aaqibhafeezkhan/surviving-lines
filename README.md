@@ -168,6 +168,9 @@ line of the table prints.
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --markdown           print a Markdown table
 --identities         list addresses that look like one person, with .mailmap lines
+--co-authors <mode>  none (default) or share: split each line and commit equally between the author
+                     and the Co-authored-by trailer identities (.mailmap applies to them)
+--ai-breakdown       also print surviving lines and commits whose message trailers name an AI assistant
 --group-by <key>     one block per group of files: dir (top-level directories), dir:<n> (n levels deep), or ext
 --suggest-codeowners print CODEOWNERS lines for the groups, from the surviving lines (needs --group-by dir; never written)
 --include-bots       count bot identities as authors (default: leave them out of both shares)
@@ -215,6 +218,19 @@ git blame -w -M  ·  commits 339, merges excluded
 
 … 76 more authors
 ```
+
+## Co-authors and AI assistants
+
+Pairing and AI-assisted commits carry `Co-authored-by:` trailers, and by default the co-author gets nothing.
+`--co-authors share` splits each line and each commit equally between the author and every trailer identity,
+after `.mailmap` has been applied to them. Only trailers in the last paragraph of a message count, so a sentence
+that happens to start with the same words does not.
+
+`--ai-breakdown` prints how many surviving lines and commits come from commits whose trailers name an AI
+assistant. The recognised trailers are `Assisted-by:` (as the Linux kernel documents it) and the
+`Co-authored-by:` addresses listed in `AI_ASSISTANTS` in `bin/surviving-lines.js`, each with the page that
+documents it. This counts trailers. It does not detect AI-written code, and a commit with no trailer may still
+have had help.
 
 ## Who owns which part
 

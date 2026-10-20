@@ -5,7 +5,7 @@
   "description": "schemaVersion changes when a key is removed, renamed or changes type. Adding a key does not change it.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "tool", "ref", "sort", "shallow", "sample", "commitWindow", "bots", "grouping", "blame", "authors"],
+  "required": ["schemaVersion", "tool", "ref", "sort", "shallow", "sample", "commitWindow", "bots", "grouping", "coAuthors", "aiAssisted", "blame", "authors"],
   "properties": {
     "schemaVersion": { "type": "integer", "const": 1 },
     "tool": {
@@ -30,7 +30,7 @@
         "filesTotal": { "type": "integer", "minimum": 0 },
         "filesSampled": { "type": "integer", "minimum": 0 },
         "linesInRef": { "type": "integer", "minimum": 0 },
-        "linesAttributed": { "type": "integer", "minimum": 0 }
+        "linesAttributed": { "type": "number", "minimum": 0, "description": "An integer unless --co-authors share is used." }
       }
     },
     "commitWindow": {
@@ -40,7 +40,7 @@
       "properties": {
         "since": { "type": ["string", "null"] },
         "until": { "type": ["string", "null"] },
-        "commits": { "type": "integer", "minimum": 0 },
+        "commits": { "type": "number", "minimum": 0, "description": "An integer unless --co-authors share is used." },
         "mergesExcluded": { "type": "boolean" }
       }
     },
@@ -76,6 +76,28 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "coAuthors": { "type": "string", "enum": ["none", "share"], "description": "share: Co-authored-by trailers split each line and commit equally with the author, so lines and commits can be fractions." },
+    "aiAssisted": {
+      "type": ["object", "null"],
+      "description": "Present with --ai-breakdown, null otherwise. Counted from commit trailers, not from the code.",
+      "additionalProperties": false,
+      "required": ["lines", "lineShare", "commits", "commitShare", "assistants"],
+      "properties": {
+        "lines": { "type": "number", "minimum": 0 },
+        "lineShare": { "type": "number", "minimum": 0, "maximum": 1 },
+        "commits": { "type": "number", "minimum": 0 },
+        "commitShare": { "type": "number", "minimum": 0, "maximum": 1 },
+        "assistants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "lines", "commits"],
+            "properties": { "name": { "type": "string" }, "lines": { "type": "number", "minimum": 0 }, "commits": { "type": "number", "minimum": 0 } }
           }
         }
       }
@@ -121,9 +143,9 @@
         "properties": {
           "author": { "type": "string" },
           "mail": { "type": "string", "description": "Lowercased, as .mailmap resolved it." },
-          "lines": { "type": "integer", "minimum": 0 },
+          "lines": { "type": "number", "minimum": 0, "description": "An integer unless --co-authors share is used." },
           "lineShare": { "type": "number", "minimum": 0, "maximum": 1 },
-          "commits": { "type": "integer", "minimum": 0 },
+          "commits": { "type": "number", "minimum": 0, "description": "An integer unless --co-authors share is used." },
           "commitShare": { "type": "number", "minimum": 0, "maximum": 1 }
         }
       }

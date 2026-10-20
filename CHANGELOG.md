@@ -24,6 +24,15 @@ group's shares like everywhere else. `--suggest-codeowners` (with `--group-by di
 directories where one author holds at least half of the sampled surviving lines, and a comment for the rest. It
 never writes a file.
 
+**Co-authors and AI assistants, from trailers only.** `--co-authors share` splits each surviving line and each
+commit equally between its author and the identities in its `Co-authored-by:` trailers, the way `git fame
+--auth share` does; `.mailmap` applies to the trailer identities, and the second line of the output says the mode
+is on. The default is unchanged. `--ai-breakdown` adds a block with the surviving lines and the commits whose
+trailers name an AI assistant: a `Co-authored-by:` address listed in `AI_ASSISTANTS` (each entry cites where the
+tool documents it) or an `Assisted-by:` trailer. It counts trailers, not authorship, and says so. With
+`--co-authors share`, `lines` and `commits` in `--json` can be fractions, so the schema types them `number`;
+`coAuthors` and `aiAssisted` are new keys and `schemaVersion` stays 1.
+
 ## 0.2.4 (2026-10-16)
 
 **An empty run names the filter that emptied it.** A pathspec after `--` that matches nothing now stops with

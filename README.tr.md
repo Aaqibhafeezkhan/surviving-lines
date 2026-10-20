@@ -147,6 +147,9 @@ satırı zaten bunları basar.
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --markdown           print a Markdown table
 --identities         list addresses that look like one person, with .mailmap lines
+--co-authors <mode>  none (default) or share: split each line and commit equally between the author
+                     and the Co-authored-by trailer identities (.mailmap applies to them)
+--ai-breakdown       also print surviving lines and commits whose message trailers name an AI assistant
 --group-by <key>     one block per group of files: dir (top-level directories), dir:<n> (n levels deep), or ext
 --suggest-codeowners print CODEOWNERS lines for the groups, from the surviving lines (needs --group-by dir; never written)
 --include-bots       count bot identities as authors (default: leave them out of both shares)

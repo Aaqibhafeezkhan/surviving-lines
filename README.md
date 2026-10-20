@@ -114,6 +114,11 @@ line of the table prints.
 - The `commits` column counts non-merge commits reachable from the ref, optionally
   inside a `--since` / `--until` window. Scope the window to a person's tenure when comparing
   people who joined at different times.
+- A repository's `.git-blame-ignore-revs` is read by default and passed to `git blame --ignore-revs-file`, so a
+  reformatting commit listed there does not take the lines it touched. The file used is named on the second
+  line of the output and in `--json`; `--no-ignore-revs` ignores it and `--ignore-revs-file <f>` names another.
+  Which revisions belong in the file is the repository's decision, not this tool's. The file is read from the working
+  tree at the repository root, not from the ref being analysed. It needs git 2.23 or newer.
 - Binary files are skipped. Identities follow the repository's `.mailmap`; add one to
   merge an author's several addresses. When two rows share a name the table shows the
   address so they are not confused.
@@ -160,6 +165,9 @@ line of the table prints.
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --markdown           print a Markdown table
 --identities         list addresses that look like one person, with .mailmap lines
+--ignore-revs-file <f>  skip the revisions listed in <f> when blaming (git 2.23 or newer);
+                       default: .git-blame-ignore-revs at the repository root, when it exists
+--no-ignore-revs     do not read .git-blame-ignore-revs
 --allow-shallow      run in a shallow clone anyway; every output is marked "shallow clone"
 --cwd <dir>          repository directory (default: current directory)
 ```

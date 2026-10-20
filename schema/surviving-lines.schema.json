@@ -47,9 +47,10 @@
     "blame": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["flags"],
+      "required": ["flags", "ignoreRevsFile"],
       "properties": {
-        "flags": { "type": "array", "items": { "type": "string" } }
+        "flags": { "type": "array", "items": { "type": "string" }, "description": "The git blame flags used, including --ignore-revs-file and the file's name when one was used." },
+        "ignoreRevsFile": { "type": ["string", "null"], "description": "The ignore-revs file passed to git blame, as named on the command line or .git-blame-ignore-revs; null when none was used." }
       }
     },
     "authors": {

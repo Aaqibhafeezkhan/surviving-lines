@@ -8,7 +8,7 @@ Machine: darwin arm64, node v24.13.0, git version 2.50.1 (Apple Git-155). Fixtur
 
 | Tool | Version | Licence | Used as |
 | --- | --- | --- | --- |
-| surviving-lines | 0.2.4 (commit 82db2c5) | MIT | this repository |
+| surviving-lines | 0.2.4 (commit 9b6a320) | MIT | this repository |
 | git-fame | 4.2.1 | MPL-2.0 | oracle only: run, never copied |
 | git-who | v1.3 (commit aa656b04) | MIT License | run; `table` and `tree` |
 | git-extras | 7.5.0 (commit 2bdeb59a) | (The MIT License) | run `git summary --line` |
@@ -26,7 +26,7 @@ No competitor code is copied into this repository. git-fame is MPL-2.0 and is on
 | P03 | Commit count per author | git-who | basic | commits: ada=1, bob=2 | commits: bob=2, ada=1 | tie | same numbers |
 | P04 | Same surviving lines as a plain blame tally | git-extras (git summary --line) | basic | ada=11, bob=10 | ada=11, bob=10 | tie | same numbers |
 | P05 | --since / --until window | git-fame | basic | lines: ada=11, bob=10; commits: ada=0, bob=2 | lines: bob=10; commits: bob=2 | differs | git-fame applies the window to the blame side as well; this tool windows only the commit side (issue #11) |
-| P06 | Blame ignore-revs file (a reformat commit does not take ownership) | git-fame | reformat | lines: bob=20, ada=12 | lines: ada=32, bob=0 | differs | this tool does not read .git-blame-ignore-revs yet |
+| P06 | Blame ignore-revs file (a reformat commit does not take ownership) | git-fame | reformat | lines: ada=32, bob=0 | lines: ada=32, bob=0 | tie | same numbers |
 | P07 | Bots left out of both shares by default | git-fame | bots | 2 bot identities counted as authors | no option to leave bots out; its table counts them | differs | this tool does not exclude bots yet |
 | P08 | Co-authored-by credit, equal split | git-fame (--auth share) | pairing | no such option | ada=19, bob=15, noreply=4; ada=2, bob=2.5, noreply=0.5 | ours lacks (stated loss) | not built yet |
 | P09 | An Assisted-by trailer with no address does not stop the run | git-fame (--auth share) | coauthor | no such option | them: AttributeError: 'NoneType' object has no attribute 'group' | ours lacks (stated loss) | not built yet |
@@ -37,7 +37,7 @@ No competitor code is copied into this repository. git-fame is MPL-2.0 and is on
 | P14 | Output formats | git-fame | basic | json, csv, markdown | json, csv, md, svg, yaml | ours lacks (stated loss) | ours has no svg, yaml |
 | P15 | Deterministic file sampling (--sample, --seed) | git-fame | wide | two runs agree: 27 of 120 files | no sampling option | ours only | same seed, same files, same numbers |
 | P16 | Suggest .mailmap lines for one person on two addresses | git-fame | split | found the split and printed .mailmap lines | no such option | ours only | git-fame only tells you to add a .mailmap |
-| P17 | Wall time, 120 files of 40 lines | git-fame | wide | 0.63 s for every file, 0.23 s with --sample 5 | 0.43 s | info | median of three runs on this machine; not a claim about large repositories (issue #35) |
+| P17 | Wall time, 120 files of 40 lines | git-fame | wide | 0.68 s for every file, 0.25 s with --sample 5 | 0.41 s | info | median of three runs on this machine; not a claim about large repositories (issue #35) |
 | P18 | Visual workspace for a repository | git-truck | basic | terminal tables only | browser visualisation (installed 5.0.0) | ours lacks (stated loss) | stated loss; git-truck prints no numbers to compare |
 | P19 | Burndown of lines over time, per author | hercules | basic | a single point in time (issues #15, #18) | not run: could not be installed: /bin/sh: protoc: command not found \| make: *** [internal/pb/pb.pb.go] Error 127 | ours lacks (stated loss) | stated loss; hercules was last released in 2020 |
 
@@ -58,5 +58,6 @@ Only rows where the verdict is `tie` or `ours only`:
 - P02: Commit count per author against git-fame (tie)
 - P03: Commit count per author against git-who (tie)
 - P04: Same surviving lines as a plain blame tally against git-extras (git summary --line) (tie)
+- P06: Blame ignore-revs file (a reformat commit does not take ownership) against git-fame (tie)
 - P15: Deterministic file sampling (--sample, --seed) against git-fame (ours only)
 - P16: Suggest .mailmap lines for one person on two addresses against git-fame (ours only)

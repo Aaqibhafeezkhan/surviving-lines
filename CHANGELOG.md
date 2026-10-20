@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 (unreleased)
+
+**A reformatting commit can be left out of blame.** `--ignore-revs-file <file>` passes a file of revisions to
+`git blame --ignore-revs-file`, the same name `workproof` uses, and a repository's own `.git-blame-ignore-revs` at
+its root is read by default. `--no-ignore-revs` turns that off. The file that was used is part of the first-line
+summary (`git blame -w -M --ignore-revs-file ...`) and of `--json` (`blame.ignoreRevsFile`, `null` when none).
+The file sample does not depend on it. It needs git 2.23 or newer, and a run that would use it on an older git
+stops and says so instead of ignoring the file.
+
 ## 0.2.4 (2026-10-16)
 
 **An empty run names the filter that emptied it.** A pathspec after `--` that matches nothing now stops with

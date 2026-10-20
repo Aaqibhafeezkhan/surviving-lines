@@ -13,7 +13,8 @@
  */
 
 import { execFile, spawn } from "node:child_process";
-import { realpathSync, readFileSync } from "node:fs";
+import { existsSync, realpathSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
@@ -51,6 +52,9 @@ Measure who wrote the code that is still alive in a git ref.
   --since <date>       commit-share window start (passed to git log)
   --until <date>       commit-share window end
   --copies             pass -C to git blame as well as -w -M (slower, follows copies)
+  --ignore-revs-file <f>  skip the revisions listed in <f> when blaming (git 2.23 or newer);
+                       default: .git-blame-ignore-revs at the repository root, when it exists
+  --no-ignore-revs     do not read .git-blame-ignore-revs
   --jobs <n>           parallel blame processes (default: 4)
   --top <k>            rows to print (default: 10)
   --sort <key>         lines (default), commits, or gap between line and commit share
@@ -78,7 +82,7 @@ Exit status:
   1   error (invalid ref, shallow clone, or no files sampled)
   2   command-line option error`;
 
-/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
+/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, ignoreRevsFile?: string, noIgnoreRevs: boolean, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
 
 /**
  * @param {string[]} argv
@@ -86,7 +90,7 @@ Exit status:
  */
 export function parseArgs(argv) {
   /** @type {Options} */
-  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], copies: false, jobs: 4, top: 10, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
+  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], noIgnoreRevs: false, copies: false, jobs: 4, top: 10, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -103,6 +107,8 @@ export function parseArgs(argv) {
     else if (a === "--since") o.since = next();
     else if (a === "--until") o.until = next();
     else if (a === "--copies") o.copies = true;
+    else if (a === "--ignore-revs-file") o.ignoreRevsFile = next();
+    else if (a === "--no-ignore-revs") o.noIgnoreRevs = true;
     else if (a === "--jobs") { o.jobs = Number(next()); if (!Number.isInteger(o.jobs) || o.jobs < 1) throw new Error("--jobs must be an integer >= 1"); }
     else if (a === "--top") { o.top = Number(next()); if (!Number.isInteger(o.top) || o.top < 1) throw new Error("--top must be an integer >= 1"); }
     else if (a === "--sort") { const sort = next(); if (!["lines", "commits", "gap"].includes(sort)) throw new Error("--sort must be lines, commits, or gap"); o.sort = /** @type {"lines" | "commits" | "gap"} */ (sort); }
@@ -116,6 +122,9 @@ export function parseArgs(argv) {
     else if (a === "-h" || a === "--help") { o.paths = ["--help"]; return o; }
     else if (a === "--version") { o.paths = ["--version"]; return o; }
     else throw new Error(`unknown option ${a} (see --help)`);
+  }
+  if (o.ignoreRevsFile !== undefined && o.noIgnoreRevs) {
+    throw new Error("--ignore-revs-file and --no-ignore-revs are mutually exclusive");
   }
   const outputFormats = [o.json, o.csv, o.markdown, o.identities].filter(Boolean);
   if (outputFormats.length > 1) {
@@ -246,6 +255,52 @@ export function gitVersionProblem(versionOutput) {
 }
 
 /**
+ * The oldest git that has `git blame --ignore-revs-file`, added in git 2.23.0 (Documentation/RelNotes/2.23.0.txt:
+ * "git blame" learned to ignore commits). MIN_GIT stays 2.15 because the rest of the tool runs there; only a run
+ * that actually passes the flag needs this.
+ */
+export const MIN_GIT_IGNORE_REVS = [2, 23];
+
+/**
+ * True when this git can take --ignore-revs-file, or when its version cannot be read (the same benefit of the
+ * doubt gitVersionProblem gives).
+ * @param {string} versionOutput what `git --version` printed
+ */
+export function supportsIgnoreRevs(versionOutput) {
+  const m = /git version (\d+)\.(\d+)/.exec(versionOutput);
+  if (!m) return true;
+  const [major, minor] = [Number(m[1]), Number(m[2])];
+  return major > MIN_GIT_IGNORE_REVS[0] || (major === MIN_GIT_IGNORE_REVS[0] && minor >= MIN_GIT_IGNORE_REVS[1]);
+}
+
+/**
+ * The ignore-revs file this run passes to git blame, or null for none. An explicit file must exist.
+ * Otherwise the repository's own .git-blame-ignore-revs is used when present. `display` is the name
+ * printed in the output (so a result does not carry a temporary path); `path` is what git reads.
+ * @param {Options} o
+ * @param {string} versionOutput
+ * @returns {Promise<{ display: string, path: string } | null>}
+ */
+async function resolveIgnoreRevs(o, versionOutput) {
+  if (o.noIgnoreRevs) return null;
+  /** @type {{ display: string, path: string }} */
+  let chosen;
+  if (o.ignoreRevsFile !== undefined) {
+    chosen = { display: o.ignoreRevsFile, path: resolve(o.cwd, o.ignoreRevsFile) };
+    if (!existsSync(chosen.path)) throw new Error(`--ignore-revs-file ${o.ignoreRevsFile} does not exist`);
+  } else {
+    const top = (await git(["rev-parse", "--show-toplevel"], o.cwd)).trim();
+    const candidate = join(top, ".git-blame-ignore-revs");
+    if (!existsSync(candidate)) return null;
+    chosen = { display: ".git-blame-ignore-revs", path: candidate };
+  }
+  if (!supportsIgnoreRevs(versionOutput)) {
+    throw new Error(`${chosen.display} needs git ${MIN_GIT_IGNORE_REVS.join(".")} or newer to be used (git blame --ignore-revs-file); upgrade git or pass --no-ignore-revs`);
+  }
+  return chosen;
+}
+
+/**
  * The empty tree's id for this repository's hash algorithm, without touching /dev/null (Windows).
  * @param {string} cwd
  * @returns {Promise<string>}
@@ -354,6 +409,12 @@ export async function analyse(o) {
 
   const blameArgs = ["blame", "--line-porcelain", "-w", "-M"];
   if (o.copies) blameArgs.push("-C");
+  const shownFlags = blameArgs.slice(2);
+  const ignoreRevs = await resolveIgnoreRevs(o, versionOutput);
+  if (ignoreRevs) {
+    blameArgs.push("--ignore-revs-file", ignoreRevs.path);
+    shownFlags.push("--ignore-revs-file", ignoreRevs.display);
+  }
 
   let cursor = 0;
   let completed = 0;
@@ -434,7 +495,7 @@ export async function analyse(o) {
     shallow,
     sample: { every: o.sample, seed: o.seed, filesTotal: all.length, filesSampled: sampled.length, linesInRef: all.reduce((s, f) => s + f.lines, 0), linesAttributed: attributed },
     commitWindow: { since: o.since ?? null, until: o.until ?? null, commits, mergesExcluded: true },
-    blame: { flags: blameArgs.slice(2) },
+    blame: { flags: shownFlags, ignoreRevsFile: ignoreRevs ? ignoreRevs.display : null },
     authors: rows,
   };
 }

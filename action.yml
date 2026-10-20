@@ -24,7 +24,7 @@ inputs:
   version:
     description: surviving-lines version to run.
     required: false
-    default: "0.2.4"
+    default: "0.3.0"
   package:
     description: A local surviving-lines package to run instead of the registry version, as a path to an npm pack tarball. Empty by default, which runs surviving-lines@<version> from npm. This repository's CI sets it to the tarball built from the commit under test.
     required: false

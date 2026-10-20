@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.0 (unreleased)
+## 0.3.0 (2026-10-20)
 
 **A reformatting commit can be left out of blame.** `--ignore-revs-file <file>` passes a file of revisions to
 `git blame --ignore-revs-file`, the same name `workproof` uses, and a repository's own `.git-blame-ignore-revs` at

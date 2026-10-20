@@ -42,6 +42,27 @@ a token that may not comment (a pull request from a fork) is a warning, not a fa
 repository at the merge commit, not only the files the pull request changes, and the default sample is 1 in 5 files, printed in the
 comment. It is not a gate: nothing fails because of a share.
 
+**The README opens with the problem, one command and a recording.** The first screen is now the problem in a
+user's words, the category sentence, `npx surviving-lines`, a terminal recording made with `vhs`
+(`docs/demo.tape`, `docs/demo.gif`) and a "How this differs" table whose rows are only the ties and wins in
+`docs/COMPARISON.md`. The stars, downloads and bundle-size badges are gone. The package description and keywords
+use the same category sentence and the search phrases people type. New files: `docs/FAQ.md` (questions in the
+form developers search for), `docs/GEO-PROMPTS.md` (five fixed prompts for measuring whether assistants name this
+tool), `docs/LISTINGS.md` (text for npm, the GitHub repository, GitHub Marketplace and Terminal Trove) and a
+rewritten `llms.txt`. The Action's `description` is shorter, to fit the Marketplace limit.
+
+**Corrections to claims that git-fame 4.2.1 had made false.** The comparison section said this tool prints commit
+share next to line share, as if git-fame did not. git-fame prints a `distribution`
+column with both shares, so the section was rewritten against git-fame 4.2.1 and now lists what git-fame does
+that this tool does not. "Appears to be unpublished" now says that we did not find a published measurement of the
+gap, and that git-fame prints both shares. The timing claims (0.4 seconds, "well
+under a minute") had no benchmark behind them and are removed; the comparison document reports wall time on one
+fixture. The example output was regenerated, because bots are now left out: on `langchain-ai/openwiki` at
+`1e6d54c` the commit count went from 339 to 275 and the top author's commit share from 18.0% to 22.2%. The README example now runs on this repository at `1e37ea6`, so it shows no author addresses. The Turkish
+README had the same stale figures and a different timing; it was corrected the same way. The comparison now says
+that git-fame groups authors by name, so it merges one name on two addresses without telling you, and the
+`--since` window that also applies to blame is listed as a stated loss.
+
 ## 0.2.4 (2026-10-16)
 
 **An empty run names the filter that emptied it.** A pathspec after `--` that matches nothing now stops with

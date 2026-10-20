@@ -1,0 +1,71 @@
+name: surviving lines
+description: 'Comments a table of who wrote the code that is still alive in the repository on the pull request, and updates that comment on every push.'
+author: Efe Genc
+branding:
+  icon: bar-chart-2
+  color: blue
+inputs:
+  sample:
+    description: Blame every n-th file, chosen by a hash of the path (1 blames every file). The rate is printed in the comment.
+    required: false
+    default: "5"
+  top:
+    description: Rows to print.
+    required: false
+    default: "10"
+  args:
+    description: Extra surviving-lines options, separated by spaces, for example --exclude '*.lock' or --include-bots. Paths with spaces are not supported here.
+    required: false
+    default: ""
+  comment:
+    description: Post or update a sticky comment on the pull request. Needs permissions pull-requests write and a pull_request event. The table is always written to the job summary.
+    required: false
+    default: "true"
+  version:
+    description: surviving-lines version to run.
+    required: false
+    default: "0.2.4"
+  package:
+    description: A local surviving-lines package to run instead of the registry version, as a path to an npm pack tarball. Empty by default, which runs surviving-lines@<version> from npm. This repository's CI sets it to the tarball built from the commit under test.
+    required: false
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Refuse a shallow clone
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "$(git rev-parse --is-shallow-repository)" = "true" ]; then
+          echo "::error title=Shallow clone::surviving-lines needs the full history, and actions/checkout fetches one commit by default. Set fetch-depth: 0 on the checkout step."
+          exit 1
+        fi
+    - name: Run surviving-lines
+      shell: bash
+      env:
+        SL_VERSION: ${{ inputs.version }}
+        SL_PACKAGE: ${{ inputs.package }}
+        SL_SAMPLE: ${{ inputs.sample }}
+        SL_TOP: ${{ inputs.top }}
+        SL_ARGS: ${{ inputs.args }}
+      run: |
+        set -euo pipefail
+        set -f
+        sl() {
+          if [ -n "${SL_PACKAGE}" ]; then npx --yes --package "${SL_PACKAGE}" surviving-lines "$@"
+          else npx --yes "surviving-lines@${SL_VERSION}" "$@"; fi
+        }
+        # SL_ARGS is split on spaces on purpose (set -f above stops a pattern such as *.lock from being expanded
+        # against the files here): it holds options, and it reaches the command through the environment, never
+        # through the script text.
+        # shellcheck disable=SC2086
+        sl --markdown --sample "${SL_SAMPLE}" --top "${SL_TOP}" -q ${SL_ARGS} > surviving-lines.md
+        cat surviving-lines.md >> "$GITHUB_STEP_SUMMARY"
+    - name: Comment on the pull request
+      if: ${{ inputs.comment == 'true' && github.event_name == 'pull_request' }}
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        PR: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+      run: node "$GITHUB_ACTION_PATH/scripts/action-comment.mjs" surviving-lines.md

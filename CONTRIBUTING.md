@@ -11,8 +11,8 @@ npm run coverage  # the same tests with Node's built-in coverage over bin/, fail
 ```
 
 CI runs `npm run coverage` on one leg (Ubuntu, Node 24). The thresholds in `package.json` are the floor
-of what the suite measured when they were set (lines 98.48%, branches 82.80%, functions 96.43% on
-2026-10-14). A pull request that removes or skips a test can fail there even when `npm test` passes;
+of what the suite measured when they were set (lines 98.80%, branches 88.93%, functions 98.18% on
+2026-10-20). A pull request that removes or skips a test can fail there even when `npm test` passes;
 one that adds tests may raise the thresholds.
 
 Node 22 or newer and git are required; the tool itself needs git 2.15 or newer (`MIN_GIT` in `bin/surviving-lines.js` says why). A change that uses a newer git feature raises `MIN_GIT` and the README line that states it, citing the git release note that introduced the feature.

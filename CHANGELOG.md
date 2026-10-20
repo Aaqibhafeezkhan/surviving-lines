@@ -33,6 +33,13 @@ tool documents it) or an `Assisted-by:` trailer. It counts trailers, not authors
 `--co-authors share`, `lines` and `commits` in `--json` can be fractions, so the schema types them `number`;
 `coAuthors` and `aiAssisted` are new keys and `schemaVersion` stays 1.
 
+**A GitHub Action that comments the table on a pull request.** `Bubblegunn/surviving-lines` runs the tool with
+`--markdown` on the full history, writes the table to the job summary, and posts it as a pull request comment that
+the next push updates instead of adding a second one. It refuses a shallow clone with the `fetch-depth: 0` fix, and
+a token that may not comment (a pull request from a fork) is a warning, not a failed build. The table covers the whole
+repository at the merge commit, not only the files the pull request changes, and the default sample is 1 in 5 files, printed in the
+comment. It is not a gate: nothing fails because of a share.
+
 ## 0.2.4 (2026-10-16)
 
 **An empty run names the filter that emptied it.** A pathspec after `--` that matches nothing now stops with

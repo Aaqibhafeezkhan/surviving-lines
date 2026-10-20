@@ -67,6 +67,27 @@ jobs:
       - run: npx publint --strict
       - name: Install the packed tarball in an empty project and run it
         run: sh scripts/smoke-tarball.sh
+  action:
+    # The composite action, run on this repository's own full history from the tarball built at this commit.
+    # It does not comment (comment: "false"): a pull request from a fork gets a read-only token.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Pack this commit
+        run: echo "TARBALL=$PWD/$(npm pack --silent | tail -1)" >> "$GITHUB_ENV"
+      - uses: ./
+        with:
+          package: ${{ env.TARBALL }}
+          comment: "false"
+          sample: "10"
+      - name: The table reached the job summary
+        run: test -s surviving-lines.md && grep -q "files .* sampled (1 in 10)" surviving-lines.md
   release-gate:
     # The version the package states is the version every other file states, and npm pack ships only allowlisted paths.
     runs-on: ubuntu-latest
@@ -84,9 +105,9 @@ jobs:
   ci-ok:
     # The one check the branch ruleset requires; it fails if any job above failed or was cancelled.
     if: always()
-    needs: [test, coverage, package, release-gate]
+    needs: [test, coverage, package, action, release-gate]
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "test: ${{ needs.test.result }}  coverage: ${{ needs.coverage.result }}  package: ${{ needs.package.result }}  release-gate: ${{ needs.release-gate.result }}"
-          test "${{ needs.test.result }}" = success && test "${{ needs.coverage.result }}" = success && test "${{ needs.package.result }}" = success && test "${{ needs.release-gate.result }}" = success
+          echo "test: ${{ needs.test.result }}  coverage: ${{ needs.coverage.result }}  package: ${{ needs.package.result }}  action: ${{ needs.action.result }}  release-gate: ${{ needs.release-gate.result }}"
+          test "${{ needs.test.result }}" = success && test "${{ needs.coverage.result }}" = success && test "${{ needs.package.result }}" = success && test "${{ needs.action.result }}" = success && test "${{ needs.release-gate.result }}" = success

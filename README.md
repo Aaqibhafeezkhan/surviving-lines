@@ -219,6 +219,25 @@ git blame -w -M  ·  commits 339, merges excluded
 … 76 more authors
 ```
 
+## On a pull request
+
+```yaml
+on: pull_request
+permissions: { contents: read, pull-requests: write }
+jobs:
+  lines:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with: { fetch-depth: 0 }
+      - uses: Bubblegunn/surviving-lines@v0
+```
+
+It comments the Markdown table for the whole repository at the merge commit and updates that comment on every push.
+`sample` (default 5), `top`, `args` (more options) and `comment` are inputs. Pin the actions to commits in your own
+workflow. A pull request from a fork gets a read-only token, so there the table is only in the job summary. Nothing
+fails because of a share.
+
 ## Co-authors and AI assistants
 
 Pairing and AI-assisted commits carry `Co-authored-by:` trailers, and by default the co-author gets nothing.

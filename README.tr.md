@@ -2,7 +2,21 @@
 
 [English](README.md) | Türkçe
 
-Bir git ref'inde hâlâ yaşayan kodu kimin yazdığını, commit payının yanında ölçer.
+Bu depodaki kodu gerçekte kimin yazdığını bilmek istiyorum ama commit sayısı yalnızca kimin meşgul olduğunu gösteriyor; kendi blame betiklerim biçimlendirici commit'lerini ve botları da yazar sayıyor, bir kişiyi de iki kez listeliyor.
+
+surviving-lines, bir git deposunda her yazarın hâlâ kodda duran satırlarını `git blame` ile sayan ve yazarın commit payının yanında gösteren bir komut satırı aracıdır.
+
+```
+npx surviving-lines
+```
+
+![surviving-lines terminal kaydı: yazar tablosu, dizin başına tablo ve iki adresi olan bir kişi için önerilen .mailmap satırları](docs/demo.gif)
+
+Kayıt, bu deponun `bin/surviving-lines.js` dosyasının gerçek bir çalıştırmasıdır; [`docs/demo.tape`](docs/demo.tape) ile betiklenmiştir.
+
+## Fark nedir
+
+git-fame 4.2.1, git-who v1.3 ve git-extras 7.5.0 aynı örnek depolarda çalıştırılarak ölçüldü; ayrıntılar [`docs/COMPARISON.md`](docs/COMPARISON.md) içinde, İngilizce tablo [README.md](README.md) içinde. Özet: satır ve commit sayıları, `.git-blame-ignore-revs`, `Co-authored-by:` payı ve uzantı başına toplamlar git-fame ile aynı çıkıyor. Yalnızca bu araçta olanlar: aynı tuzla aynı dosyaları seçen deterministik örnek, varsayılan olarak botları iki paydan çıkarma, adresi olmayan bir `Assisted-by:` satırında durmama, AI asistanı satırlarını ayrı sayma ve iki adresi olan bir kişi için `.mailmap` satırı önerme. git-fame ise tek çalıştırmada birden çok depo, blame tarafına da uygulanan `--since` penceresi ve svg ile yaml çıktısı konularında öndedir. Sık sorulanlar [`docs/FAQ.md`](docs/FAQ.md) içinde.
 
 Commit sayısı etkinliği ölçer. `git blame` ise sonraki her yeniden düzenlemeden sağ çıkanı
 ölçer. İki sayı sanıldığından daha sık ayrışır ve ilginç olan genellikle aradaki boşluktur:
@@ -11,10 +25,6 @@ altında olan biri ise değiştirilen kodu yazmıştır.
 
 Tek dosya, bağımlılık yok, Node 22 ya da üstü, git 2.15 ya da üstü, `git`'in okuyabildiği her depo.
 
-```
-npx surviving-lines --sample 5 --include '**/*.ts' --exclude '**/*.test.ts'
-```
-
 Git alt komutunu kullanmak için paketi global olarak kurun:
 
 ```
@@ -22,24 +32,32 @@ npm install --global surviving-lines
 git surviving-lines --version
 ```
 
-```
-ref HEAD  ·  files 50/203 sampled (1 in 5)  ·  14,722 of 59,049 lines attributed
-git blame -w -M  ·  commits 339, merges excluded
+## Örnek
 
-author            lines   share  commits   share
-------------------------------------------------
-Colin Francis     7,718   52.4%       61   18.0%
-Brace Sproul      3,314   22.5%       61   18.0%
-Greg Land           356    2.4%        9    2.7%
-…
+```
+npx surviving-lines --ref 1e37ea6 --top 3
+```
+
+```
+ref 1e37ea6  ·  files 71/71 sampled (1 in 1)  ·  9,823 of 9,835 lines attributed
+git blame -w -M  ·  commits 73, merges excluded
+bots excluded: 1 identity, 12 lines, 7 commits (--include-bots counts them)
+
+author                lines   share  commits   share
+----------------------------------------------------
+Efe Genc              9,335   95.0%       67   91.8%
+Aaqibhafeez Khan        221    2.2%        2    2.7%
+Ensar                   182    1.9%        3    4.1%
+… 1 more author
 
 What this cannot show: quality of the lines, review work, design done in documents,
 or code that was deleted on purpose. Share of surviving lines is about survivorship, not merit.
 ```
 
-Bu çalıştırma [langchain-ai/openwiki](https://github.com/langchain-ai/openwiki) deposunun
-`1e6d54c` sürümünde (4 Eylül 2026) yapıldı ve 0,3 saniye sürdü. Aynı commit payına sahip iki
-yazar, hâlâ orada duran kodun çok farklı paylarını tutuyor.
+Bu çalıştırma, bu deponun `1e37ea6` sürümünde (20 Ekim 2026), bir kopyasından çalıştırılarak yapıldı.
+Botlar dışarıda bırakılır; bu yüzden commit sayısı dependabot'un 7 commit'ini saymaz. En üstteki yazar
+hâlâ duran satırların %95,0'ını ve commit'lerin %91,8'ini tutuyor; buradaki fark küçük, daha büyük
+fark [`research/`](research/README.md) içindeki araştırmada.
 
 ## Neden örnekleme
 
@@ -49,8 +67,9 @@ yolun hash'i (FNV-1a) ve isteğe bağlı bir tuz ile seçilir, böylece depoya v
 herkes aynı dosyaları ve aynı sayıları alır. Farklı bir örnek çekmek ve payların tuttuğunu
 görmek için tuzu değiştirin.
 
-`--sample 1` (varsayılan) her dosyayı blame'ler. 60 bin satırlık bir TypeScript deposunda bu
-hâlâ bir dakikanın epey altındadır.
+`--sample 1` (varsayılan) her dosyayı blame'ler. [`docs/COMPARISON.md`](docs/COMPARISON.md) iki kipin
+duvar saati süresini tek bir örnek depoda raporlar (P17 satırı); büyük depolar için iddia içermez,
+benchmark için #35 numaralı konu açıktır.
 
 ## Örnek nasıl seçilir
 
@@ -79,14 +98,14 @@ bundandır.
 `--seed second` ile ilk yol 646834445'e hash'lenir, yine 0 mod 5; toplamda farklı 45 dosya
 seçilir. Aynı commit üzerinde üç tuz:
 
-| tuz | dosya | atfedilen satır | Colin Francis | Brace Sproul |
+| tuz | dosya | atfedilen satır | en üst yazar | ikinci yazar |
 |---|---|---|---|---|
-| (yok) | 50/203 | 59.049'un 14.722'si | %52,4 | %22,5 |
-| `second` | 45/203 | 59.049'un 12.609'u | %59,5 | %24,4 |
-| `third` | 47/203 | 59.049'un 13.071'i | %56,1 | %22,5 |
+| (yok) | 50/203 | 59.049'un 14.638'i | %52,7 | %22,6 |
+| `second` | 45/203 | 59.049'un 12.607'si | %59,5 | %24,4 |
+| `third` | 47/203 | 59.049'un 12.851'i | %57,1 | %22,9 |
 
 En üstteki yazar için yaklaşık yedi puanlık bu yayılma, bu depoda 5'te 1 örneğin değeridir:
-sıralama ve commit payıyla arasındaki fark (ikisi için de %18,0) her tuzda tutar, ikinci
+sıralama ve commit payıyla arasındaki fark (ikisi için de %22,2) her tuzda tutar, ikinci
 ondalık tutmaz. Pay, deponun değil örneklenen satırların payıdır ve örnek dosya bazında
 seçildiği için tek bir büyük dosya payı oynatabilir. Tek bir sayı önemliyse `--sample 1`
 çalıştırın; örneklenmiş bir sayıyı alıntılarken `--json` çıktısındaki `sample.every`,
@@ -127,6 +146,18 @@ satırı zaten bunları basar.
   tam klon sanardı. Kullanılan diğer özellikler git sürüm notlarına göre daha eskidir:
   `blame --line-porcelain` 1.7.6, `git -c` 1.7.2, `core.precomposeunicode` 1.7.12. CI yalnızca
   her çalıştırıcı imajının getirdiği git'i kullanır, yani 2.15'in kendisi test edilmez.
+
+- Deponun kendi `.git-blame-ignore-revs` dosyası varsayılan olarak okunur ve `git blame --ignore-revs-file`
+  ile verilir; bu dosyada listelenen bir biçimlendirme commit'i dokunduğu satırları almaz. `--no-ignore-revs`
+  bunu kapatır, `--ignore-revs-file <f>` başka bir dosya verir. git 2.23 ya da üstü gerekir.
+- Botlar iki sütundan da çıkarılır: adı `[bot]` ile biten ya da GitHub uygulaması, Renovate, GitLab veya Gitea
+  bot adresi olan kimlikler. Çıktının ikinci satırı kaç kimlik, satır ve commit çıkarıldığını yazar;
+  `--include-bots` bunları yeniden sayar.
+- `--co-authors share` her satırı ve commit'i yazar ile `Co-authored-by:` satırlarındaki kimlikler arasında
+  eşit böler. `--ai-breakdown` ek olarak mesaj satırlarında bir AI asistanı adı geçen commit'lerin satır ve
+  commit sayısını yazar. Bu satırları sayar, yazarlığı saptamaz.
+- `--group-by dir` (ya da `dir:<n>`, `ext`) aynı ölçümü dizin ya da uzantı başına verir. `--suggest-codeowners`
+  CODEOWNERS satırları yazdırır, hiçbir dosya yazmaz.
 
 ## Seçenekler
 
@@ -236,13 +267,19 @@ Görüntü işin diğer yarısı:
 
 ## git shortlog ve git-fame ile karşılaştırma
 
-`git shortlog -sn` commit sayar; bu, aracın son iki sütununda yazdırdığı etkinlik sayısıdır,
-fazlası değil. `git fame` (Python aracı) da her dosyayı blame'ler ve yazar başına satır
-raporlar; en yakın akrabadır. Farklar: surviving-lines dosyaları deterministik örnekler, bu
-yüzden büyük bir depoda çalıştırma saniyeler içinde biter ve aynı tuzla bir başkası tarafından
-yeniden üretilebilir; commit payını satır payının yanında yazdırır, boşluk görünür olur;
-`.mailmap`'i izler ve aynı adları ayırt eder; bağımlılığı yoktur. Dosya başına ayrıntı ya da
-zaman içinde hayatta kalma istiyorsanız git fame ya da özel bir `git log -L` daha iyi araçtır.
+`git shortlog -sn` yalnızca commit sayar. git-fame (Python aracı, bu yazılırken 4.2.1) de her dosyayı
+blame'ler ve yazar başına hayatta kalan satırı, commit'i ve dosyayı yazar. En yakın araçtır, satır payını
+commit payının yanında `distribution` sütununda gösterir ve birçok konuda bu araçtan fazlasını yapar: tek
+çalıştırmada birden çok depo, blame tarafına da uygulanan `--since` ve `--until` penceresi, svg ve yaml çıktısı,
+pip, conda, snap ve docker ile kurulum, maliyet tahmini.
+
+[`docs/COMPARISON.md`](docs/COMPARISON.md) ikisini aynı örnek depolarda çalıştırır ve bu aracın kaybettiği
+satırlar dahil her sonucu listeler. Hayatta kalan satır, commit, yok sayılan revizyonlar, ortak yazar payı ve
+uzantı başına toplamlarda ikisi aynı sayıları verir. Yalnızca bu araç dosyaları tuzlu bir hash ile örnekler,
+botları varsayılan olarak iki paydan da çıkarır, iki adresi olan bir kişi için `.mailmap` satırı önerir,
+adresi olmayan bir `Assisted-by:` satırında durmaz ve AI asistanı satırlarını ayrı sayar. git-fame'in
+listesinden bir şeye ihtiyacınız varsa onu kullanın; yeniden üretilebilir örnek, kimlik ve bot yönetimi
+gerekiyorsa bunu.
 
 ## Neyi gösteremez
 

@@ -99,11 +99,11 @@ test("the README first screen makes no speed claim and shows no stale sample", (
 });
 
 test("README samples show no real person's email address", () => {
-  for (const f of ["README.md"]) {
+  for (const f of ["README.md", "README.tr.md"]) {
     const t = read(f);
     const emails = t.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g) ?? [];
     for (const e of emails) {
-      assert.match(e, /@(example\.(com|org)|laptop\.example\.org|anthropic\.com|users\.noreply\.github\.com)$/, `${f} contains ${e}`);
+      assert.match(e, /@(example\.(com|org)|laptop\.example\.org|anthropic\.com)$/, `${f} contains ${e}`);
     }
     assert.doesNotMatch(t, /Colin Francis|Brace Sproul|zan22ye/, `${f} names an openwiki author`);
   }
@@ -118,4 +118,13 @@ test("README claims are narrowed to what git-fame 4.2.1 and the benchmarks allow
   assert.doesNotMatch(r, /14,722|12,609|13,071|52\.4%|18\.0%|commits 339/, "stale pre-0.3.0 sample figures");
   assert.match(r, /we did not find a published\s+measurement/);
   assert.match(r, /## Compared with git shortlog and git-fame\n[\s\S]*docs\/COMPARISON\.md/);
+});
+
+test("the Turkish README has the same first screen facts and none of the stale figures", () => {
+  const tr = read("README.tr.md");
+  assert.ok(tr.split("\n").slice(0, 12).join("\n").includes("surviving-lines, bir git deposunda"), "category sentence in Turkish");
+  assert.ok(tr.indexOf("```\nnpx surviving-lines\n```") < tr.indexOf("\n## "), "bare command first");
+  assert.ok(tr.includes("docs/demo.gif"));
+  assert.doesNotMatch(tr, /0,3 saniye|bir dakikanın epey altındadır|commits 339|14,722|14\.722|%52,4|%18,0/);
+  assert.match(tr, /docs\/COMPARISON\.md/);
 });

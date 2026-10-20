@@ -52,7 +52,10 @@
     "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"bin/**\" --test-coverage-lines=98 --test-coverage-branches=82 --test-coverage-functions=96",
     "lint": "node --check bin/surviving-lines.js",
     "release": "node scripts/release.mjs",
-    "release-gate": "node scripts/release-gate.mjs"
+    "release-gate": "node scripts/release-gate.mjs",
+    "compare": "node scripts/compare/run.mjs",
+    "compare:fetch": "node scripts/compare/fetch.mjs",
+    "test:differential": "node scripts/compare/differential.mjs"
   },
   "devDependencies": {
     "publint": "^0.3.24"

@@ -119,6 +119,9 @@ line of the table prints.
   line of the output and in `--json`; `--no-ignore-revs` ignores it and `--ignore-revs-file <f>` names another.
   Which revisions belong in the file is the repository's decision, not this tool's. The file is read from the working
   tree at the repository root, not from the ref being analysed. It needs git 2.23 or newer.
+- Bots are left out of both columns: a name ending in `[bot]`, or a GitHub app, Renovate, GitLab or Gitea bot
+  address. The second line of the output says how many identities, lines and commits that removed, so a
+  busy bot cannot shrink every person's commit share without it showing. `--include-bots` counts them.
 - Binary files are skipped. Identities follow the repository's `.mailmap`; add one to
   merge an author's several addresses. When two rows share a name the table shows the
   address so they are not confused.
@@ -165,6 +168,7 @@ line of the table prints.
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --markdown           print a Markdown table
 --identities         list addresses that look like one person, with .mailmap lines
+--include-bots       count bot identities as authors (default: leave them out of both shares)
 --ignore-revs-file <f>  skip the revisions listed in <f> when blaming (git 2.23 or newer);
                        default: .git-blame-ignore-revs at the repository root, when it exists
 --no-ignore-revs     do not read .git-blame-ignore-revs

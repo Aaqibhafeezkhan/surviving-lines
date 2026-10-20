@@ -9,6 +9,14 @@ summary (`git blame -w -M --ignore-revs-file ...`) and of `--json` (`blame.ignor
 The file sample does not depend on it. It needs git 2.23 or newer, and a run that would use it on an older git
 stops and says so instead of ignoring the file.
 
+**Bots are left out of both shares.** An identity whose name ends in `[bot]`, or whose address is a GitHub app
+(`<id>+<name>[bot]@users.noreply.github.com`), `bot@renovateapp.com`, `gitlab-bot@gitlab.com` or `teabot@gitea.io`
+(the patterns `workproof` uses), no longer appears as an author, and neither its lines nor its commits are in
+the denominators, so the line share and the commit share still describe the same people. The second line of the
+table says how many identities, lines and commits were left out, and `--json` lists them under `bots.excluded`.
+`--include-bots` counts them again. A person whose name only resembles a bot's (`Bot Hawkins`, `Botticelli`) is
+counted.
+
 ## 0.2.4 (2026-10-16)
 
 **An empty run names the filter that emptied it.** A pathspec after `--` that matches nothing now stops with

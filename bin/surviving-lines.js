@@ -52,6 +52,7 @@ Measure who wrote the code that is still alive in a git ref.
   --since <date>       commit-share window start (passed to git log)
   --until <date>       commit-share window end
   --copies             pass -C to git blame as well as -w -M (slower, follows copies)
+  --include-bots       count bot identities as authors (default: leave them out of both shares)
   --ignore-revs-file <f>  skip the revisions listed in <f> when blaming (git 2.23 or newer);
                        default: .git-blame-ignore-revs at the repository root, when it exists
   --no-ignore-revs     do not read .git-blame-ignore-revs
@@ -82,7 +83,7 @@ Exit status:
   1   error (invalid ref, shallow clone, or no files sampled)
   2   command-line option error`;
 
-/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, ignoreRevsFile?: string, noIgnoreRevs: boolean, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
+/** @typedef {{ ref: string, sample: number, seed: string, include: string[], exclude: string[], since?: string, until?: string, includeBots: boolean, ignoreRevsFile?: string, noIgnoreRevs: boolean, copies: boolean, jobs: number, top: number, sort: "lines" | "commits" | "gap", quiet: boolean, json: boolean, csv: boolean, markdown: boolean, identities: boolean, allowShallow: boolean, cwd: string, paths: string[], stderr?: import("node:stream").Writable & { isTTY?: boolean } }} Options */
 
 /**
  * @param {string[]} argv
@@ -90,7 +91,7 @@ Exit status:
  */
 export function parseArgs(argv) {
   /** @type {Options} */
-  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], noIgnoreRevs: false, copies: false, jobs: 4, top: 10, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
+  const o = { ref: "HEAD", sample: 1, seed: "", include: [], exclude: [], includeBots: false, noIgnoreRevs: false, copies: false, jobs: 4, top: 10, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => {
@@ -107,6 +108,7 @@ export function parseArgs(argv) {
     else if (a === "--since") o.since = next();
     else if (a === "--until") o.until = next();
     else if (a === "--copies") o.copies = true;
+    else if (a === "--include-bots") o.includeBots = true;
     else if (a === "--ignore-revs-file") o.ignoreRevsFile = next();
     else if (a === "--no-ignore-revs") o.noIgnoreRevs = true;
     else if (a === "--jobs") { o.jobs = Number(next()); if (!Number.isInteger(o.jobs) || o.jobs < 1) throw new Error("--jobs must be an integer >= 1"); }
@@ -131,6 +133,23 @@ export function parseArgs(argv) {
     throw new Error("--json, --csv, --markdown and --identities are mutually exclusive");
   }
   return o;
+}
+
+/**
+ * The addresses of the apps that commit on their own. These are the patterns GitHub uses for app
+ * identities (`<id>+<name>[bot]@users.noreply.github.com`) plus the three other bot addresses
+ * workproof recognises (src/figures/bot.ts in Bubblegunn/workproof), so the two tools agree.
+ */
+const BOT_MAIL_PATTERNS = [/^(?:\d+)?[^@]+\[bot\]@users\.noreply\.github\.com$/i, /^bot@renovateapp\.com$/i, /^gitlab-bot@gitlab\.com$/i, /^teabot@gitea\.io$/i];
+
+/**
+ * True for an identity that is a bot by name or by address: a name that ends in "[bot]", or one
+ * of BOT_MAIL_PATTERNS. Nothing cleverer: a person called "Bot Hawkins" or "Botticelli" is a person.
+ * @param {string} name
+ * @param {string} mail
+ */
+export function isBotIdentity(name, mail) {
+  return /\[bot\]$/i.test(name.trim()) || BOT_MAIL_PATTERNS.some((re) => re.test(mail));
 }
 
 /**
@@ -454,6 +473,20 @@ export async function analyse(o) {
     authors.set(mail, a);
   }
 
+  // Bots leave both sides together, so the two shares keep one set of people as their denominator.
+  /** @type {{ author: string, mail: string, lines: number, commits: number }[]} */
+  const botRows = [];
+  if (!o.includeBots) {
+    for (const [mail, a] of authors) {
+      if (!isBotIdentity(a.name, mail)) continue;
+      botRows.push({ author: a.name, mail, lines: a.lines, commits: a.commits });
+      attributed -= a.lines;
+      commits -= a.commits;
+      authors.delete(mail);
+    }
+    botRows.sort((x, y) => y.lines - x.lines || y.commits - x.commits || x.mail.localeCompare(y.mail));
+  }
+
   /** @param {{ lines: number, commits: number, mail: string }} x @param {{ lines: number, commits: number, mail: string }} y */
   const compareDefault = (x, y) => y.lines - x.lines || y.commits - x.commits || x.mail.localeCompare(y.mail);
   const rows = [...authors.entries()].map(([mail, a]) => ({
@@ -495,6 +528,7 @@ export async function analyse(o) {
     shallow,
     sample: { every: o.sample, seed: o.seed, filesTotal: all.length, filesSampled: sampled.length, linesInRef: all.reduce((s, f) => s + f.lines, 0), linesAttributed: attributed },
     commitWindow: { since: o.since ?? null, until: o.until ?? null, commits, mergesExcluded: true },
+    bots: { included: o.includeBots, excluded: botRows },
     blame: { flags: shownFlags, ignoreRevsFile: ignoreRevs ? ignoreRevs.display : null },
     authors: rows,
   };
@@ -616,6 +650,20 @@ function headerLine(r) {
 }
 
 /**
+ * The line that says bots were left out, or null when none were. Silent filtering in a tool about
+ * attribution would be the wrong default.
+ * @param {{ bots?: { included: boolean, excluded: { lines: number, commits: number }[] } }} r
+ * @returns {string | null}
+ */
+function botsLine(r) {
+  const n = r.bots?.excluded.length ?? 0;
+  if (!r.bots || r.bots.included || n === 0) return null;
+  const lines = r.bots.excluded.reduce((s, b) => s + b.lines, 0);
+  const commits = r.bots.excluded.reduce((s, b) => s + b.commits, 0);
+  return `bots excluded: ${n} identit${n === 1 ? "y" : "ies"}, ${lines.toLocaleString("en-US")} lines, ${commits.toLocaleString("en-US")} commits (--include-bots counts them)`;
+}
+
+/**
  * @param {Awaited<ReturnType<typeof analyse>>} r
  * @param {number} top
  */
@@ -624,6 +672,8 @@ export function renderTable(r, top) {
   lines.push(headerLine(r));
   const w = r.commitWindow;
   lines.push(`git blame ${r.blame.flags.join(" ")}  ·  commits ${w.commits.toLocaleString("en-US")}${w.since || w.until ? ` in window ${w.since ?? "…"} to ${w.until ?? "…"}` : ""}, merges excluded`);
+  const excludedBots = botsLine(r);
+  if (excludedBots) lines.push(excludedBots);
   lines.push("");
   const nameCount = new Map();
   for (const a of r.authors) nameCount.set(a.author, (nameCount.get(a.author) ?? 0) + 1);
@@ -665,6 +715,8 @@ export function renderMarkdown(r, top) {
   lines.push(
     `git blame ${r.blame.flags.join(" ")}  ·  commits ${w.commits.toLocaleString("en-US")}${w.since || w.until ? ` in window ${w.since ?? "…"} to ${w.until ?? "…"}` : ""}, merges excluded`
   );
+  const excludedBots = botsLine(r);
+  if (excludedBots) lines.push(excludedBots);
 
   lines.push("");
 

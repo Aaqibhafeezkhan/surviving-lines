@@ -128,3 +128,34 @@ test("the Turkish README has the same first screen facts and none of the stale f
   assert.doesNotMatch(tr, /0,3 saniye|bir dakikanın epey altındadır|commits 339|14,722|14\.722|%52,4|%18,0/);
   assert.match(tr, /docs\/COMPARISON\.md/);
 });
+
+test("llms.txt carries the category sentence and every relative link resolves", () => {
+  const t = read("llms.txt");
+  assert.ok(t.includes(`> ${CATEGORY}`));
+  for (const m of t.matchAll(/\]\(([^)#]+)\)/g)) {
+    if (!/^https?:/.test(m[1])) assert.ok(existsSync(join(root, m[1])), `llms.txt links to missing ${m[1]}`);
+  }
+});
+
+test("FAQ answers in question form and GEO prompts are exactly five", () => {
+  const faq = read("docs/FAQ.md");
+  const questions = faq.match(/^## .+$/gm) ?? [];
+  assert.ok(questions.length >= 12, `${questions.length} questions`);
+  for (const q of questions) assert.ok(q.endsWith("?"), q);
+  assert.equal((read("docs/GEO-PROMPTS.md").match(/^\| G[1-5] \|/gm) ?? []).length, 5);
+});
+
+test("LISTINGS.md uses the category sentence, the package keywords and the Action description", () => {
+  const listings = read("docs/LISTINGS.md");
+  assert.ok(listings.includes(CATEGORY));
+  for (const k of JSON.parse(read("package.json")).keywords) assert.ok(listings.includes(k), `keyword ${k} missing from LISTINGS.md`);
+  const action = /^description: '?(.*?)'?$/m.exec(read("action.yml"))?.[1] ?? "";
+  assert.ok(action.length > 0 && action.length <= 125, `action description is ${action.length} characters`);
+  assert.ok(listings.includes(`Short description, at most 125 characters: ${action}`), "Marketplace text equals action.yml");
+});
+
+test("no em dash in the new text", () => {
+  for (const f of ["README.md", "README.tr.md", "llms.txt", "docs/FAQ.md", "docs/GEO-PROMPTS.md", "docs/LISTINGS.md"]) {
+    assert.ok(!read(f).includes("—"), `${f} contains an em dash`);
+  }
+});

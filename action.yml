@@ -1,5 +1,5 @@
 name: surviving lines
-description: 'Comments a table of who wrote the code that is still alive in the repository on the pull request, and updates that comment on every push.'
+description: 'Comments a table of who wrote the code still in the repo, next to commit share, on every pull request.'
 author: Efe Genc
 branding:
   icon: bar-chart-2

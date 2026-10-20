@@ -83,10 +83,9 @@ surviving lines and 91.8% of the commits; the gap is small here and larger in th
 
 ## Why sample
 
-`git blame` is slow on large repositories because it walks history for every file. A
-deterministic sample makes the run cheap and, more importantly, reproducible: the file
-set is chosen by hashing each path (FNV-1a) with an optional seed, so anyone with the
-repository and the same command gets the same files and the same numbers. Change the
+`git blame` walks history for every file it reads. A deterministic sample reads fewer
+files and, more importantly, makes the run reproducible: the file set is chosen by
+hashing each path (FNV-1a) with an optional seed, so anyone with the repository and the same command gets the same files and the same numbers. Change the
 seed to draw a different sample and check that the shares hold.
 
 `--sample 1` (the default) blames every file. [`docs/COMPARISON.md`](docs/COMPARISON.md) reports wall time for both
@@ -139,7 +138,7 @@ line of the table prints.
 - The `lines` column counts lines in the sampled files whose last change, as
   `git blame -w -M` sees it, belongs to the author. `-w` ignores whitespace-only changes and `-M` follows lines
   moved within a file, so reformatting and relocation do not steal authorship. Add
-  `--copies` for `-C`, which also follows lines copied from other files; it is slower.
+  `--copies` for `-C`, which also follows lines copied from other files.
 - The `commits` column counts non-merge commits reachable from the ref, optionally
   inside a `--since` / `--until` window. Scope the window to a person's tenure when comparing
   people who joined at different times.
@@ -188,7 +187,7 @@ line of the table prints.
 --exclude <glob>     skip files matching the glob (repeatable)
 --since <date>       commit-share window start (passed to git log)
 --until <date>       commit-share window end
---copies             pass -C to git blame as well as -w -M (slower, follows copies)
+--copies             pass -C to git blame as well as -w -M (follows copies)
 --jobs <n>           parallel blame processes (default: 4)
 --top <k>            rows to print (default: 10)
 --sort <key>         lines (default), commits, or gap (absolute share difference)

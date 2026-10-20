@@ -40,7 +40,7 @@ In a shallow clone the oldest fetched commit stands in for all earlier history, 
 
 ## How accurate is a sampled run?
 
-`--sample n` blames one file in `n`, chosen by a hash of the path and an optional `--seed`, so the same command picks the same files on every machine. The share is of the sampled lines, not of the repository. On the example in the README, three seeds gave the top author between 52.7% and 59.5%. `--sample 1`, the default, blames every file.
+`--sample n` blames one file in `n`, chosen by a hash of the path and an optional `--seed`, so the same command picks the same files on every machine. The share is of the sampled lines, not of the repository. In the README's openwiki seed table (langchain-ai/openwiki at 1e6d54c, `--sample 5`), three seeds gave the top author between 52.7% and 59.5%. `--sample 1`, the default, blames every file.
 
 ## Can it comment on pull requests?
 

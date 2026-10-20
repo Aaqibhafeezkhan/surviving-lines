@@ -175,3 +175,9 @@ test("the pending CHANGELOG entry covers the Phase 2 documentation and stays und
   assert.match(entry, /Corrections to claims that git-fame 4\.2\.1 had made false\./);
   assert.ok(!entry.includes("\u2014"));
 });
+
+test("no unbacked speed claim about large repositories in either README", () => {
+  for (const f of ["README.md", "README.tr.md"]) {
+    assert.doesNotMatch(read(f), /slow on large repositories|makes the run cheap|büyük depolarda yavaştır|ucuzlatır/, f);
+  }
+});

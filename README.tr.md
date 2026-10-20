@@ -61,8 +61,8 @@ fark [`research/`](research/README.md) içindeki araştırmada.
 
 ## Neden örnekleme
 
-`git blame` büyük depolarda yavaştır çünkü her dosya için geçmişi dolaşır. Deterministik bir
-örnek çalıştırmayı ucuzlatır ve daha önemlisi yeniden üretilebilir kılar: dosya kümesi her
+`git blame` okuduğu her dosya için geçmişi dolaşır. Deterministik bir örnek daha az dosya
+okur ve daha önemlisi çalıştırmayı yeniden üretilebilir kılar: dosya kümesi her
 yolun hash'i (FNV-1a) ve isteğe bağlı bir tuz ile seçilir, böylece depoya ve aynı komuta sahip
 herkes aynı dosyaları ve aynı sayıları alır. Farklı bir örnek çekmek ve payların tuttuğunu
 görmek için tuzu değiştirin.
@@ -117,8 +117,7 @@ satırı zaten bunları basar.
 - `lines` sütunu, örneklenen dosyalarda, `git blame -w -M`'nin gördüğü hâliyle son
   değişikliği yazara ait olan satırları sayar. `-w` yalnızca boşluk değişikliklerini yok sayar, `-M` dosya
   içinde taşınan satırları izler; böylece yeniden biçimlendirme ve yer değiştirme yazarlığı
-  çalmaz. Başka dosyalardan kopyalanan satırları da izleyen `-C` için `--copies` ekleyin; daha
-  yavaştır.
+  çalmaz. Başka dosyalardan kopyalanan satırları da izleyen `-C` için `--copies` ekleyin.
 - `commits` sütunu, ref'ten erişilebilen merge dışı commit'leri sayar; isteğe bağlı bir
   `--since` / `--until` penceresi içinde. Farklı zamanlarda katılan kişileri karşılaştırırken pencereyi
   kişinin görev süresine daraltın.
@@ -169,7 +168,7 @@ satırı zaten bunları basar.
 --exclude <glob>     skip files matching the glob (repeatable)
 --since <date>       commit-share window start (passed to git log)
 --until <date>       commit-share window end
---copies             pass -C to git blame as well as -w -M (slower, follows copies)
+--copies             pass -C to git blame as well as -w -M (follows copies)
 --jobs <n>           parallel blame processes (default: 4)
 --top <k>            rows to print (default: 10)
 --sort <key>         lines (default), commits, or gap (absolute share difference)

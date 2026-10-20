@@ -167,9 +167,9 @@ test("research and roadmap no longer say what 0.3.0 made false", () => {
   assert.match(roadmap, /issue #34/);
 });
 
-test("the pending CHANGELOG entry covers the Phase 2 documentation and stays undated", () => {
+test("the 0.3.0 CHANGELOG entry covers the Phase 2 documentation", () => {
   const log = read("CHANGELOG.md");
-  assert.match(log, /^## 0\.3\.0 \(unreleased\)$/m);
+  assert.match(log, /^## 0\.3\.0 \((?:unreleased|\d{4}-\d{2}-\d{2})\)$/m);
   const entry = log.slice(log.indexOf("## 0.3.0"), log.indexOf("## 0.2.4"));
   assert.match(entry, /The README opens with the problem, one command and a recording\./);
   assert.match(entry, /Corrections to claims that git-fame 4\.2\.1 had made false\./);

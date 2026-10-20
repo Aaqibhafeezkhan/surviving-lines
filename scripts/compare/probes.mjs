@@ -205,6 +205,27 @@ export const PROBES = [
       return { verdict: "ours-lacks", ours: "a single point in time (issues #15, #18)", theirs: s.ran ? s.note : `not run: ${s.note}`, note: "stated loss; hercules was last released in 2020" };
     },
   },
+  {
+    id: "P20", feature: "git-fame shows surviving share and commit share side by side (distribution column)", competitor: "git-fame (distribution column)", fixture: "split",
+    run: ({ dir }) => {
+      // git-fame's text table: a `distribution` column holding loc/commits/files shares as "x.x/y.y/z.z" per author.
+      const fame = spawnSync(upstreamPaths().gitFame, [...FAME, dir], { encoding: "utf8" });
+      const fameOut = fame.stdout ?? "";
+      const fameHeader = /^\|\s*Author\s*\|.*\|\s*distribution\s*\|\s*$/m.test(fameOut);
+      const fameTriples = (fameOut.match(/\|\s*\d+\.\d\/\d+\.\d\/\d+\.\d\s*\|/g) ?? []).length;
+      const fameShows = fame.status === 0 && fameHeader && fameTriples > 0;
+      // surviving-lines' own text table: a `share` column for lines and one for commits.
+      const ours = oursText(dir, []);
+      const oursShows = ours.status === 0 && /lines\s+share\s+commits\s+share/.test(ours.stdout);
+      const verdict = fame.status !== 0 ? "not-run" : fameShows && oursShows ? "tie" : fameShows ? "ours-lacks" : oursShows ? "ours-only" : "differs";
+      return {
+        verdict,
+        ours: oursShows ? "table prints a lines share and a commits share side by side" : "no lines and commits share columns side by side",
+        theirs: fameShows ? `distribution column, ${fameTriples} author rows of loc/commits/files shares` : fame.status !== 0 ? `not run: ${fame.stderr?.trim().split("\n").pop() ?? "exit " + fame.status}` : "no distribution column",
+        note: "both put the surviving-line share next to the commit share; git-fame also prints a files share in the same cell",
+      };
+    },
+  },
 ];
 
 /** Features a competitor has that no probe can run, kept visible. */

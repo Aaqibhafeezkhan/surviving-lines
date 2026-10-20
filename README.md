@@ -89,8 +89,8 @@ set is chosen by hashing each path (FNV-1a) with an optional seed, so anyone wit
 repository and the same command gets the same files and the same numbers. Change the
 seed to draw a different sample and check that the shares hold.
 
-`--sample 1` (the default) blames every file. On a 60k-line TypeScript repository that
-is still well under a minute.
+`--sample 1` (the default) blames every file. [`docs/COMPARISON.md`](docs/COMPARISON.md) reports wall time for both
+modes on one fixture (row P17); it makes no claim about large repositories, and issue #35 asks for a benchmark.
 
 ## How the sample is chosen
 
@@ -122,12 +122,12 @@ With `--seed second` the first path hashes to 646834445, still 0 mod 5, and a di
 
 | seed | files | lines attributed | top author | second author |
 |---|---|---|---|---|
-| (none) | 50/203 | 14,722 of 59,049 | 52.4% | 22.5% |
-| `second` | 45/203 | 12,609 of 59,049 | 59.5% | 24.4% |
-| `third` | 47/203 | 13,071 of 59,049 | 56.1% | 22.5% |
+| (none) | 50/203 | 14,638 of 59,049 | 52.7% | 22.6% |
+| `second` | 45/203 | 12,607 of 59,049 | 59.5% | 24.4% |
+| `third` | 47/203 | 12,851 of 59,049 | 57.1% | 22.9% |
 
 That spread, about seven points for the top author, is what a 1-in-5 sample of this
-repository is worth: the ranking and the gap to commit share (18.0% for both) hold on every
+repository is worth: the ranking and the gap to commit share (22.2% for both) hold on every
 seed, the second decimal does not. A share is of the sampled lines, not of the repository,
 and the sample is by file, so one large file can move it. When a single number matters,
 run `--sample 1`; when you quote a sampled one, quote `sample.every`, `sample.seed`,
@@ -406,14 +406,19 @@ Three things are deliberate and are not going to change:
 
 ## Compared with git shortlog and git-fame
 
-`git shortlog -sn` counts commits, which is the activity number this tool prints in its last
-two columns and nothing more. `git fame` (the Python tool) also blames every file and reports
-lines per author, and it is the closest relative; the differences are that surviving-lines
-samples files deterministically so a run on a large repository finishes in seconds and can be
-reproduced by someone else with the same seed, prints commit share next to line share so the
-gap is visible, follows `.mailmap` and disambiguates duplicate names, and has no dependencies.
-If you want per-file detail or survival over time, git fame or a custom `git log -L` is the
-better tool.
+`git shortlog -sn` counts commits and nothing else. git-fame (a Python tool, version 4.2.1 when this was
+written) also blames every file and prints surviving lines, commits and files per author. It is the closest
+tool, it prints line share next to commit share in its `distribution` column, and in several ways it does
+more: several repositories in one run, a `--since` and `--until` window that also applies to blame,
+svg and yaml output, installation through pip, conda, snap and docker, and cost estimates.
+
+[`docs/COMPARISON.md`](docs/COMPARISON.md) runs both on the same fixture repositories and lists every
+result, including the ones this tool loses. The two give the same numbers for surviving lines, commits,
+ignored revisions, co-author credit and totals per extension. Only this tool samples files by a seeded hash,
+leaves bots out of both shares by default, suggests `.mailmap` lines for one person on two addresses, finishes
+on an `Assisted-by:` trailer that has no address, and breaks out AI-assistant trailers. Use git-fame when you
+need something from its list above; use this one when you need a reproducible sample, or the identity
+and bot handling.
 
 ## What it cannot show
 
@@ -438,13 +443,11 @@ years, with young lines the most likely to die ([PeerJ CS 7:e372,
 TypeScript repositories and found over half of all lines are never deleted ([arXiv
 2606.04993, 2026](https://arxiv.org/abs/2606.04993)).
 
-Both measure lines. Neither measures people, and whether an author's share of commits
-predicts their share of the surviving code appears to be unpublished. This tool prints both
-numbers side by side, so [`research/`](research/) contains a first measurement over twelve
-repositories: the same person tops both in 25 of 36 runs, while among substantial
-contributors the two shares differ by a median of 7.5 percentage points and by ten points or
-more in a third of cases. The sample is twelve repositories and the document says what that
-cannot support.
+Both measure lines. Neither measures people. git-fame prints commit share and surviving-line share side by side,
+but we did not find a published measurement of how far the two shares differ across repositories. This tool prints both numbers, so [`research/`](research/) contains a
+first measurement over twelve repositories: the same person tops both in 25 of 36 runs, while among
+substantial contributors the two shares differ by a median of 7.5 percentage points and by ten points or
+more in a third of cases. The sample is twelve repositories and the document says what that cannot support.
 
 ## Where it came from
 

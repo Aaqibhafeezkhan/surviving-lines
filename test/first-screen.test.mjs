@@ -108,3 +108,14 @@ test("README samples show no real person's email address", () => {
     assert.doesNotMatch(t, /Colin Francis|Brace Sproul|zan22ye/, `${f} names an openwiki author`);
   }
 });
+
+test("README claims are narrowed to what git-fame 4.2.1 and the benchmarks allow", () => {
+  const r = read("README.md");
+  assert.doesNotMatch(r, /appears to be unpublished/);
+  assert.doesNotMatch(r, /well under a minute/);
+  assert.doesNotMatch(r, /prints commit share next to line share so the gap is visible/);
+  assert.doesNotMatch(r, /git fame or a custom/);
+  assert.doesNotMatch(r, /14,722|12,609|13,071|52\.4%|18\.0%|commits 339/, "stale pre-0.3.0 sample figures");
+  assert.match(r, /we did not find a published\s+measurement/);
+  assert.match(r, /## Compared with git shortlog and git-fame\n[\s\S]*docs\/COMPARISON\.md/);
+});

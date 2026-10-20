@@ -72,5 +72,9 @@ the sample.
 a limitation rather than a result; workproof does exclude them, and this measurement is an
 argument for bringing that here.
 
+**Update, 20 October 2026.** This tool now leaves bots out of both shares by default (`--include-bots` counts them
+again), so the `mcuadros/ofelia` row above would read differently on a new run. The table was measured on 5
+September with the earlier version and has not been re-run.
+
 **Survivorship is not merit.** Code can survive because it is good, because nobody dares
 touch it, or because nobody reads it. Nothing here separates those.

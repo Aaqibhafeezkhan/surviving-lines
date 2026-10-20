@@ -159,3 +159,10 @@ test("no em dash in the new text", () => {
     assert.ok(!read(f).includes("—"), `${f} contains an em dash`);
   }
 });
+
+test("research and roadmap no longer say what 0.3.0 made false", () => {
+  assert.match(read("research/README.md"), /\*\*Update, 20 October 2026\.\*\*/);
+  const roadmap = read("ROADMAP.md");
+  assert.doesNotMatch(roadmap, /GitHub Action that comments/);
+  assert.match(roadmap, /issue #34/);
+});

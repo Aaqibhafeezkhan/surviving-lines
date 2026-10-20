@@ -8,7 +8,7 @@ Machine: darwin arm64, node v24.13.0, git version 2.50.1 (Apple Git-155). Fixtur
 
 | Tool | Version | Licence | Used as |
 | --- | --- | --- | --- |
-| surviving-lines | 0.2.4 (commit 827f47a) | MIT | this repository |
+| surviving-lines | 0.2.4 (commit f7517f3) | MIT | this repository |
 | git-fame | 4.2.1 | MPL-2.0 | oracle only: run, never copied |
 | git-who | v1.3 (commit aa656b04) | MIT License | run; `table` and `tree` |
 | git-extras | 7.5.0 (commit 2bdeb59a) | (The MIT License) | run `git summary --line` |
@@ -37,7 +37,7 @@ No competitor code is copied into this repository. git-fame is MPL-2.0 and is on
 | P14 | Output formats | git-fame | basic | json, csv, markdown | json, csv, md, svg, yaml | ours lacks (stated loss) | ours has no svg, yaml |
 | P15 | Deterministic file sampling (--sample, --seed) | git-fame | wide | two runs agree: 27 of 120 files | no sampling option | ours only | same seed, same files, same numbers |
 | P16 | Suggest .mailmap lines for one person on two addresses | git-fame | split | found the split and printed .mailmap lines | no such option | ours only | git-fame only tells you to add a .mailmap |
-| P17 | Wall time, 120 files of 40 lines | git-fame | wide | 0.60 s for every file, 0.22 s with --sample 5 | 0.39 s | info | median of three runs on this machine; not a claim about large repositories (issue #35) |
+| P17 | Wall time, 120 files of 40 lines | git-fame | wide | 0.67 s for every file, 0.25 s with --sample 5 | 0.38 s | info | median of three runs on this machine; not a claim about large repositories (issue #35) |
 | P18 | Visual workspace for a repository | git-truck | basic | terminal tables only | browser visualisation (installed 5.0.0) | ours lacks (stated loss) | stated loss; git-truck prints no numbers to compare |
 | P19 | Burndown of lines over time, per author | hercules | basic | a single point in time (issues #15, #18) | not run: could not be installed: /bin/sh: protoc: command not found \| make: *** [internal/pb/pb.pb.go] Error 127 | ours lacks (stated loss) | stated loss; hercules was last released in 2020 |
 

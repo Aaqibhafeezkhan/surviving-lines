@@ -31,7 +31,9 @@ is on. The default is unchanged. `--ai-breakdown` adds a block with the survivin
 trailers name an AI assistant: a `Co-authored-by:` address listed in `AI_ASSISTANTS` (each entry cites where the
 tool documents it) or an `Assisted-by:` trailer. It counts trailers, not authorship, and says so. With
 `--co-authors share`, `lines` and `commits` in `--json` can be fractions, so the schema types them `number`;
-`coAuthors` and `aiAssisted` are new keys and `schemaVersion` stays 1.
+`coAuthors` and `aiAssisted` are new keys and `schemaVersion` stays 1. `--co-authors share` cannot be combined with
+`--group-by`. With a bot among the co-authors, the AI figures use the same split and bot exclusion as the table, so
+the shares stay at or below 100%; `--sort gap` works in share mode.
 
 **A GitHub Action that comments the table on a pull request.** `Bubblegunn/surviving-lines` runs the tool with
 `--markdown` on the full history, writes the table to the job summary, and posts it as a pull request comment that

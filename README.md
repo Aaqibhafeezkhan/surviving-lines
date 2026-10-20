@@ -169,7 +169,8 @@ line of the table prints.
 --markdown           print a Markdown table
 --identities         list addresses that look like one person, with .mailmap lines
 --co-authors <mode>  none (default) or share: split each line and commit equally between the author
-                     and the Co-authored-by trailer identities (.mailmap applies to them)
+                     and the Co-authored-by trailer identities (.mailmap applies to them);
+                     cannot be combined with --group-by
 --ai-breakdown       also print surviving lines and commits whose message trailers name an AI assistant
 --group-by <key>     one block per group of files: dir (top-level directories), dir:<n> (n levels deep), or ext
 --suggest-codeowners print CODEOWNERS lines for the groups, from the surviving lines (needs --group-by dir; never written)
@@ -244,6 +245,8 @@ Pairing and AI-assisted commits carry `Co-authored-by:` trailers, and by default
 `--co-authors share` splits each line and each commit equally between the author and every trailer identity,
 after `.mailmap` has been applied to them. Only trailers in the last paragraph of a message count, so a sentence
 that happens to start with the same words does not.
+`--co-authors share` cannot be combined with `--group-by`. An AI assistant identity credited as a co-author
+(for example `Claude <noreply@anthropic.com>`) appears as its own row in the table in share mode.
 
 `--ai-breakdown` prints how many surviving lines and commits come from commits whose trailers name an AI
 assistant. The recognised trailers are `Assisted-by:` (as the Linux kernel documents it) and the

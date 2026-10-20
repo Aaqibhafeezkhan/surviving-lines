@@ -53,7 +53,8 @@ Measure who wrote the code that is still alive in a git ref.
   --until <date>       commit-share window end
   --copies             pass -C to git blame as well as -w -M (slower, follows copies)
   --co-authors <mode>  none (default) or share: split each line and commit equally between the author
-                       and the Co-authored-by trailer identities (.mailmap applies to them)
+                       and the Co-authored-by trailer identities (.mailmap applies to them);
+                       cannot be combined with --group-by
   --ai-breakdown       also print surviving lines and commits whose message trailers name an AI assistant
   --group-by <key>     one block per group of files: dir (top-level directories), dir:<n> (n levels deep), or ext
   --suggest-codeowners print CODEOWNERS lines for the groups, from the surviving lines (needs --group-by dir; never written)
@@ -772,11 +773,11 @@ export async function analyse(o) {
     trailers = await readTrailers(o);
     windowCommits = await readWindowCommits(o);
   }
+  /** @type {Map<string, { name: string, mail: string }[]>} */
+  const coAuthorsOf = new Map();
   if (o.coAuthors === "share") {
     const flat = [...trailers.entries()].flatMap(([sha, t]) => t.coAuthors.map((c) => ({ sha, ...c })));
     const mapped = await mapIdentities(o.cwd, flat);
-    /** @type {Map<string, { name: string, mail: string }[]>} */
-    const coAuthorsOf = new Map();
     flat.forEach((f, i) => coAuthorsOf.set(f.sha, [...(coAuthorsOf.get(f.sha) ?? []), mapped[i]]));
     const credited = shareCredit(blamedByCommit, windowCommits, coAuthorsOf);
     authors.clear();
@@ -804,6 +805,15 @@ export async function analyse(o) {
   let aiAssisted = null;
   if (o.aiBreakdown) {
     const keep = (/** @type {string} */ name, /** @type {string} */ mail) => o.includeBots || !isBotIdentity(name, mail);
+    // Under --co-authors share the AI figures use the same split and the same bot exclusion as `attributed` and
+    // `commits`, so each fraction has a numerator and a denominator on one basis. Otherwise only the author counts.
+    const share = o.coAuthors === "share";
+    /** @param {string} sha @param {{ name: string, mail: string }} author */
+    const holders = (sha, author) => {
+      const all = [author];
+      if (share) for (const c of coAuthorsOf.get(sha) ?? []) if (!all.some((p) => p.mail === c.mail)) all.push(c);
+      return all.filter((p) => keep(p.name, p.mail)).length / all.length;
+    };
     /** @type {Map<string, { lines: number, commits: number }>} */
     const per = new Map();
     let aiLines = 0;
@@ -812,18 +822,30 @@ export async function analyse(o) {
     for (const [sha, b] of blamedByCommit) {
       const t = trailers.get(sha);
       const names = t ? assistantsIn(t) : [];
-      if (!names.length || !keep(b.name, b.mail)) continue;
-      aiLines += b.lines;
-      for (const n of names) per.set(n, { lines: (per.get(n)?.lines ?? 0) + b.lines, commits: per.get(n)?.commits ?? 0 });
+      if (!names.length) continue;
+      const lines = b.lines * holders(sha, b);
+      if (!lines) continue;
+      aiLines += lines;
+      for (const n of names) per.set(n, { lines: (per.get(n)?.lines ?? 0) + lines, commits: per.get(n)?.commits ?? 0 });
     }
     for (const c of windowCommits) {
-      if (!keep(c.name, c.mail)) continue;
-      humanCommits++;
+      const weight = holders(c.sha, c);
+      if (!weight) continue;
+      humanCommits += weight;
       const t = trailers.get(c.sha);
       const names = t ? assistantsIn(t) : [];
       if (!names.length) continue;
-      aiCommits++;
-      for (const n of names) per.set(n, { lines: per.get(n)?.lines ?? 0, commits: (per.get(n)?.commits ?? 0) + 1 });
+      aiCommits += weight;
+      for (const n of names) per.set(n, { lines: per.get(n)?.lines ?? 0, commits: (per.get(n)?.commits ?? 0) + weight });
+    }
+    if (share) {
+      aiLines = round6(aiLines);
+      aiCommits = round6(aiCommits);
+      humanCommits = round6(humanCommits);
+      for (const v of per.values()) {
+        v.lines = round6(v.lines);
+        v.commits = round6(v.commits);
+      }
     }
     aiAssisted = {
       lines: aiLines,
@@ -853,8 +875,14 @@ export async function analyse(o) {
       const value = BigInt(a.lines) * BigInt(commits) - BigInt(a.commits) * BigInt(attributed);
       return value < 0n ? -value : value;
     };
+    // Under --co-authors share the counts are fractions, which BigInt rejects, so that mode compares floats.
+    const fractional = o.coAuthors === "share";
     rows.sort((x, y) => {
-      if (attributed > 0 && commits > 0) {
+      if (fractional && attributed > 0 && commits > 0) {
+        const gap = (/** @type {{ lines: number, commits: number }} */ a) => Math.abs(a.lines * commits - a.commits * attributed);
+        const gapDifference = round6(gap(y) - gap(x));
+        if (gapDifference !== 0) return gapDifference;
+      } else if (attributed > 0 && commits > 0) {
         const xGap = gapNumerator(x);
         const yGap = gapNumerator(y);
         if (xGap !== yGap) return xGap > yGap ? -1 : 1;

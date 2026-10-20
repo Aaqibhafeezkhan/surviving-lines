@@ -30,3 +30,11 @@ test("COMPARISON.md states the blame-window loss and the name-grouping caveat, a
   assert.match(doc, /groups authors by name/, "P16 caveat");
   assert.doesNotMatch(doc, / \| - \| /, "an empty cell must read 'none', not a spaced hyphen");
 });
+
+test("the terminal recording is committed, scripted and small", () => {
+  for (const f of ["docs/demo.tape", "docs/demo.gif", "docs/demo/setup.sh", "docs/demo/make-split.mjs"]) assert.ok(existsSync(join(root, f)), f);
+  const gif = readFileSync(join(root, "docs/demo.gif"));
+  assert.equal(gif.subarray(0, 3).toString("latin1"), "GIF");
+  assert.ok(gif.length <= 600_000, `${gif.length} bytes is over 600000`);
+  assert.match(read("docs/demo.tape"), /^Output docs\/demo\.gif$/m);
+});

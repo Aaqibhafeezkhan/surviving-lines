@@ -38,3 +38,73 @@ test("the terminal recording is committed, scripted and small", () => {
   assert.ok(gif.length <= 600_000, `${gif.length} bytes is over 600000`);
   assert.match(read("docs/demo.tape"), /^Output docs\/demo\.gif$/m);
 });
+
+test("README opens with the pain sentence, the category sentence and the bare command, then the recording", () => {
+  const readme = read("README.md");
+  const head = readme.split("\n").slice(0, 12).join("\n");
+  assert.ok(head.includes(PAIN), "pain sentence in the first 12 lines");
+  assert.ok(head.indexOf(CATEGORY) > head.indexOf(PAIN), "category sentence after the pain sentence");
+  const firstHeading = readme.indexOf("\n## ");
+  const command = readme.indexOf("```\nnpx surviving-lines\n```");
+  assert.ok(command !== -1 && command < firstHeading, "the bare command comes before the first section");
+  const gif = readme.indexOf("docs/demo.gif");
+  assert.ok(gif > command && gif < firstHeading, "the recording comes right after the command");
+  assert.ok(readme.includes("(docs/demo.tape)"), "the tape is linked");
+});
+
+test("no star, download or bundle-size badge in either README", () => {
+  for (const f of ["README.md", "README.tr.md"]) {
+    assert.doesNotMatch(read(f), /shields\.io\/(github\/stars|npm\/dm|bundlephobia)/, f);
+  }
+});
+
+test("every row of How this differs is a tie or ours-only row of COMPARISON.md", () => {
+  const readme = read("README.md");
+  const start = readme.indexOf("## How this differs");
+  const end = readme.indexOf("<p>", start);
+  assert.ok(start !== -1 && end > start, "section found");
+  const section = readme.slice(start, end);
+  const doc = read("docs/COMPARISON.md");
+  /** @type {Map<string, string>} */
+  const verdict = new Map();
+  for (const line of doc.split("\n")) {
+    const m = /^\| (P\d\d) \|/.exec(line);
+    if (!m) continue;
+    const cells = line.split(/(?<!\\)\|/).map((c) => c.trim());
+    verdict.set(m[1], cells[7]);
+  }
+  let rows = 0;
+  for (const line of section.split("\n")) {
+    const cells = line.split("|").map((c) => c.trim());
+    if (cells.length !== 5 || !/^P\d\d(, P\d\d)*$/.test(cells[3])) continue;
+    rows += 1;
+    for (const id of cells[3].split(", ")) {
+      assert.ok(["tie", "ours only"].includes(verdict.get(id) ?? "missing"), `${id} is ${verdict.get(id)} in COMPARISON.md`);
+    }
+  }
+  assert.ok(rows >= 9, `only ${rows} rows`);
+  // The sentence that names where git-fame is ahead must cite rows that really are not wins.
+  const ahead = /git-fame is ahead[^\n]*/.exec(section)?.[0] ?? "";
+  for (const id of ahead.match(/P\d\d/g) ?? []) {
+    assert.ok(["differs", "ours lacks (stated loss)"].includes(verdict.get(id) ?? "missing"), `${id} is ${verdict.get(id)}`);
+  }
+  assert.match(ahead, /P05/);
+  assert.match(section, /docs\/COMPARISON\.md/);
+  assert.match(section, /docs\/FAQ\.md/);
+});
+
+test("the README first screen makes no speed claim and shows no stale sample", () => {
+  const readme = read("README.md");
+  assert.doesNotMatch(readme.slice(0, readme.indexOf("\n## Why sample")), /faster|seconds|well under a minute|commits 339/);
+});
+
+test("README samples show no real person's email address", () => {
+  for (const f of ["README.md"]) {
+    const t = read(f);
+    const emails = t.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+/g) ?? [];
+    for (const e of emails) {
+      assert.match(e, /@(example\.(com|org)|laptop\.example\.org|anthropic\.com|users\.noreply\.github\.com)$/, `${f} contains ${e}`);
+    }
+    assert.doesNotMatch(t, /Colin Francis|Brace Sproul|zan22ye/, `${f} names an openwiki author`);
+  }
+});

@@ -2,17 +2,42 @@
 
 English | [Türkçe](README.tr.md)
 
+I want to know who wrote the code that is still in this repo, but commit counts only show who was busy, and my own blame scripts credit formatter commits and bots and list one person twice.
+
+surviving-lines is a command-line tool that counts the lines of code each author still has in a git repository, using git blame, and shows them next to each author's share of commits.
+
+```
+npx surviving-lines
+```
+
+![Terminal recording of surviving-lines: the author table, a per-directory table, and the .mailmap lines it suggests for one person with two addresses](docs/demo.gif)
+
+The recording is a real run of this repository's `bin/surviving-lines.js`, scripted in [`docs/demo.tape`](docs/demo.tape).
+
+## How this differs
+
+Measured with git-fame 4.2.1, git-who v1.3 and git-extras 7.5.0 on the same fixture repositories. Each row below is a `tie` or `ours only` row of [`docs/COMPARISON.md`](docs/COMPARISON.md), which `npm run compare` generates.
+
+| What | Result | Rows |
+| --- | --- | --- |
+| Surviving lines and commits per author | Same numbers as git-fame, git-who (commits) and git-extras `git summary --line` (lines). | P01, P02, P03, P04 |
+| `.git-blame-ignore-revs` | Read by default. Same numbers as git-fame with `--ignore-revs-file`. | P06 |
+| Bots | Left out of both shares by default. git-fame 4.2.1 has no option for that. | P07 |
+| `Co-authored-by:` credit | Equal split. Same numbers as git-fame `--auth share`. | P08 |
+| An `Assisted-by:` trailer with no address | The run finishes. git-fame 4.2.1 stops with an AttributeError. | P09 |
+| AI assistants | Surviving lines and commits whose trailers name one, counted separately. git-fame has no such option. | P10 |
+| Totals per file extension | Same totals as git-fame `--bytype`. | P11 |
+| Sampling | The same seed picks the same files and gives the same numbers. git-fame has no sampling. | P15 |
+| One person on two addresses | Prints the evidence and ready `.mailmap` lines. git-fame prints no suggestions and groups authors by name only. | P16 |
+
+git-fame is ahead on other rows of the same file: several repositories in one run (P13), svg and yaml output (P14), and a `--since` window that also applies to blame (P05). It also installs through pip and conda and estimates cost. Questions people ask are answered in [`docs/FAQ.md`](docs/FAQ.md).
+
 <p>
   <img src="https://img.shields.io/npm/v/surviving-lines?style=flat-square&color=111111&label=npm" alt="npm">
-  <img src="https://img.shields.io/npm/dm/surviving-lines?style=flat-square&color=111111" alt="npm downloads">
   <img src="https://img.shields.io/github/actions/workflow/status/Bubblegunn/surviving-lines/ci.yml?style=flat-square&color=111111&label=ci" alt="ci">
-  <img src="https://img.shields.io/bundlephobia/minzip/surviving-lines?style=flat-square&color=111111" alt="minzipped size">
-  <img src="https://img.shields.io/github/stars/Bubblegunn/surviving-lines?style=flat-square&color=111111" alt="stars">
   <img src="https://img.shields.io/badge/license-MIT-111111?style=flat-square" alt="MIT">
   <a href="https://doi.org/10.5281/zenodo.22394614"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.22394614-111111?style=flat-square" alt="DOI"></a>
 </p>
-
-Measure who wrote the code that is still alive in a git ref, next to who committed.
 
 Commit counts measure activity. `git blame` measures what survived every later refactor.
 The two numbers disagree more often than people expect, and the gap is usually the
@@ -22,10 +47,6 @@ replaced.
 
 One file, no dependencies, Node 22 or newer, git 2.15 or newer, any repository `git` can read.
 
-```
-npx surviving-lines --sample 5 --include '**/*.ts' --exclude '**/*.test.ts'
-```
-
 Install globally to use it through Git as well:
 
 ```
@@ -33,24 +54,32 @@ npm install --global surviving-lines
 git surviving-lines --version
 ```
 
-```
-ref HEAD  ·  files 50/203 sampled (1 in 5)  ·  14,722 of 59,049 lines attributed
-git blame -w -M  ·  commits 339, merges excluded
+## Example
 
-author                                                           lines   share  commits   share
------------------------------------------------------------------------------------------------
-Colin Francis <131073567+colifran@users.noreply.github.com>      7,718   52.4%       61   18.0%
-Brace Sproul                                                     3,314   22.5%       61   18.0%
-Colin Francis <colin.francis@langchain.dev>                        769    5.2%       10    2.9%
-… 76 more authors
+```
+npx surviving-lines --ref 1e37ea6 --top 3
+```
+
+```
+ref 1e37ea6  ·  files 71/71 sampled (1 in 1)  ·  9,823 of 9,835 lines attributed
+git blame -w -M  ·  commits 73, merges excluded
+bots excluded: 1 identity, 12 lines, 7 commits (--include-bots counts them)
+
+author                lines   share  commits   share
+----------------------------------------------------
+Efe Genc              9,335   95.0%       67   91.8%
+Aaqibhafeez Khan        221    2.2%        2    2.7%
+Ensar                   182    1.9%        3    4.1%
+… 1 more author
 
 What this cannot show: quality of the lines, review work, design done in documents,
 or code that was deleted on purpose. Share of surviving lines is about survivorship, not merit.
 ```
 
-That run is [langchain-ai/openwiki](https://github.com/langchain-ai/openwiki) at `1e6d54c`
-(4 September 2026) and took 0.4 seconds. Two authors with the same commit share hold
-very different shares of the code that is still there.
+That run is this repository at `1e37ea6` (20 October 2026), run from a checkout of it. Bots are left
+out, so the commit count excludes the 7 commits of dependabot. The top author holds 95.0% of the
+surviving lines and 91.8% of the commits; the gap is small here and larger in the research in
+[`research/`](research/README.md).
 
 ## Why sample
 
@@ -91,7 +120,7 @@ the filters):
 With `--seed second` the first path hashes to 646834445, still 0 mod 5, and a different
 45 files are chosen overall. Three seeds on the same commit:
 
-| seed | files | lines attributed | Colin Francis | Brace Sproul |
+| seed | files | lines attributed | top author | second author |
 |---|---|---|---|---|
 | (none) | 50/203 | 14,722 of 59,049 | 52.4% | 22.5% |
 | `second` | 45/203 | 12,609 of 59,049 | 59.5% | 24.4% |
@@ -204,20 +233,24 @@ JSON records the chosen key in `sort` and the schema describes it. The feature w
 prints the same table as Markdown:
 
 ```sh
-npx surviving-lines --markdown --sample 5 --include '**/*.ts' --exclude '**/*.test.ts' --top 3
+npx surviving-lines --markdown --ref 1e37ea6 --top 3
 ```
 
 ```
-ref HEAD  ·  files 50/203 sampled (1 in 5)  ·  14,722 of 59,049 lines attributed
-git blame -w -M  ·  commits 339, merges excluded
+ref 1e37ea6  ·  files 71/71 sampled (1 in 1)  ·  9,823 of 9,835 lines attributed
+git blame -w -M  ·  commits 73, merges excluded
+bots excluded: 1 identity, 12 lines, 7 commits (--include-bots counts them)
 
 | author | lines | line share | commits | commit share |
 | --- | ---: | ---: | ---: | ---: |
-| Colin Francis <131073567+colifran@users.noreply.github.com> | 7,718 | 52.4% | 61 | 18.0% |
-| Brace Sproul | 3,314 | 22.5% | 61 | 18.0% |
-| Colin Francis <colin.francis@langchain.dev> | 769 | 5.2% | 10 | 2.9% |
+| Efe Genc | 9,335 | 95.0% | 67 | 91.8% |
+| Aaqibhafeez Khan | 221 | 2.2% | 2 | 2.7% |
+| Ensar | 182 | 1.9% | 3 | 4.1% |
 
-… 76 more authors
+… 1 more author
+
+What this cannot show: quality of the lines, review work, design done in documents,
+or code that was deleted on purpose. Share of surviving lines is about survivorship, not merit.
 ```
 
 ## On a pull request
@@ -266,37 +299,53 @@ code that is left is not the same as who should review changes to it; treat the 
 
 ## Who is one person
 
-Look at that table again. Colin Francis is in it twice, rows one and three, because he has
-committed from two addresses, and every count above splits him in half. This is the most common
-way these numbers go wrong, and it is invisible until someone points at it.
+A person who has committed from two addresses is in the table twice, and every count splits them in
+half. This is the most common way these numbers go wrong, and it is invisible until someone points at it.
+In this synthetic repository (`scripts/fixtures.mjs`, fixture `split`), Ada committed from two addresses:
+
+```
+ref HEAD  ·  files 3/3 sampled (1 in 1)  ·  30 of 30 lines attributed
+git blame -w -M  ·  commits 3, merges excluded
+
+author                            lines   share  commits   share
+----------------------------------------------------------------
+Ada <ada@example.com>                12   40.0%        1   33.3%
+Bob                                  10   33.3%        1   33.3%
+Ada <ada@laptop.example.org>          8   26.7%        1   33.3%
+
+What this cannot show: quality of the lines, review work, design done in documents,
+or code that was deleted on purpose. Share of surviving lines is about survivorship, not merit.
+```
 
 `--identities` points at it:
 
 ```sh
-npx surviving-lines --identities --sample 5 --include '**/*.ts' --exclude '**/*.test.ts'
+npx surviving-lines --identities
 ```
 
 ```
-2 identities look split across more than one address.
+1 identity looks split across more than one address.
 
-Colin Francis
-  keep 131073567+colifran@users.noreply.github.com  61 commits, 7,718 lines
-  map  colin.francis@langchain.dev  10 commits, 769 lines
-  because the same name, "Colin Francis", on two addresses
-
-zan22ye
-  keep iwillgotothemoon@163.com  2 commits, 43 lines
-  map  116149836+zan22ye@users.noreply.github.com  1 commit, 8 lines
-  because the same name, "zan22ye", on two addresses
-  because the GitHub login "zan22ye" also appears as the name on the other
+Ada
+  keep ada@example.com  1 commit, 12 lines
+  map  ada@laptop.example.org  1 commit, 8 lines
+  because the same name, "Ada", on two addresses
+  because the same address name, "ada", on two domains
 
 Add these to a .mailmap file at the repository root:
 
-Colin Francis <131073567+colifran@users.noreply.github.com> <colin.francis@langchain.dev>
-zan22ye <iwillgotothemoon@163.com> <116149836+zan22ye@users.noreply.github.com>
+Ada <ada@example.com> <ada@laptop.example.org>
+
+These are guesses from names and addresses in this repository's own history; only you
+can tell whether two of them are really one person. Nothing was written. git log, git
+blame, git shortlog and this tool all read .mailmap, so one file fixes every count.
+
+The address lines above are the reliable ones. git matches a .mailmap name ignoring
+case for ASCII letters only, so a name mapped by name alone must be written with its
+accents and its non-Latin letters exactly as the commit spells them.
 ```
 
-That is a real run on the same repository as the table above, at the same commit. Paste those
+That is a real run on the synthetic fixture above; the addresses are the reserved example.com and example.org. Paste those
 lines into a `.mailmap` at the repository root and every one of these counts changes, along with
 `git log`, `git blame` and `git shortlog`, because they all read the same file. Most people who
 have committed from a laptop and a work machine are in their own history twice and have never

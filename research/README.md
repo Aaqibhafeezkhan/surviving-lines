@@ -33,7 +33,7 @@ assumed away. 36 runs, 2,748 author rows, in
 **They usually agree on who is first, and often disagree on by how much.**
 
 The person with the most commits was also the person with the most surviving lines in
-**25 of 36 runs**, and in 9 of the 12 repositories on every seed. So the headline that commit
+**25 of 36 runs**, and in 8 of the 12 repositories on every seed. So the headline that commit
 counts are worthless is not what this found, and is not claimed.
 
 Among authors holding at least 5% of either measure, the absolute gap between the two shares

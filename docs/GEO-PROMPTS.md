@@ -16,3 +16,12 @@ How to record: paste the prompt into each assistant in a fresh conversation with
 
 | Date | Assistant and model | Search | Prompt | Named | Position | Sentence |
 | --- | --- | --- | --- | --- | --- | --- |
+| 2026-10-21 | Perplexity (signed out, default model) | on | G1 | yes | 1 | surviving-lines named first and linked |
+| 2026-10-21 | Perplexity (signed out, default model) | on | G2 | no |  | no tool named in the answer; github.com/Bubblegunn/surviving-lines cited as a source |
+| 2026-10-21 | Perplexity (signed out, default model) | on | G3 | no |  | fame, git-fame-coefficient, git-truck |
+| 2026-10-21 | Perplexity (signed out, default model) | on | G4 | no |  | no tool named in bold; answer text not read |
+| 2026-10-21 | Perplexity (signed out, default model) | on | G5 | no |  | clocwork |
+
+## Notes on the 2026-10-21 round
+
+Recorded by Claude in Chrome before launch. Only whether the name appears, links to the project, and the other tools the answer names (found by a scan for known names) were kept; the full answer text was not saved. Perplexity (signed out) answered the first ten questions across the repositories and then showed a sign-up wall, so the rest went to ChatGPT in a temporary chat with no memory. Ask the 14-day round in the same assistant per prompt, or the comparison is not like for like.

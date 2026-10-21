@@ -54,6 +54,21 @@ npm install --global surviving-lines
 git surviving-lines --version
 ```
 
+### As a Claude Code plugin
+
+```
+/plugin install surviving-lines --marketplace Bubblegunn/surviving-lines
+```
+
+That one-step form works on Claude Code 2.1.275 or newer. On an older version, use two steps:
+
+```
+/plugin marketplace add Bubblegunn/surviving-lines
+/plugin install surviving-lines@surviving-lines
+```
+
+The plugin adds one skill. When you ask the agent the question this tool answers, it runs `npx surviving-lines` itself instead of estimating.
+
 ## Example
 
 ```

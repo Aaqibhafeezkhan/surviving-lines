@@ -32,6 +32,21 @@ npm install --global surviving-lines
 git surviving-lines --version
 ```
 
+### Claude Code eklentisi olarak
+
+```
+/plugin install surviving-lines --marketplace Bubblegunn/surviving-lines
+```
+
+Bu tek adımlı biçim Claude Code 2.1.275 ve üstünde çalışır. Daha eski sürümde iki adım kullanın:
+
+```
+/plugin marketplace add Bubblegunn/surviving-lines
+/plugin install surviving-lines@surviving-lines
+```
+
+Eklenti tek bir beceri ekler. Aracın cevapladığı soruyu ajana sorduğunuzda ajan tahmin yürütmez, `npx surviving-lines` komutunu kendisi çalıştırır.
+
 ## Örnek
 
 ```

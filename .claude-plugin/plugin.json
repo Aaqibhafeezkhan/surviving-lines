@@ -1,0 +1,14 @@
+{
+  "name": "surviving-lines",
+  "version": "0.3.0",
+  "description": "A skill that makes Claude Code run surviving-lines to show who wrote the code that still survives in a git repository, next to commit share.",
+  "author": {
+    "name": "Efe Genc",
+    "url": "https://efe-genc-portfolio.vercel.app"
+  },
+  "homepage": "https://github.com/Bubblegunn/surviving-lines",
+  "repository": "https://github.com/Bubblegunn/surviving-lines",
+  "license": "MIT",
+  "keywords": ["git-blame","code-ownership","bus-factor","git-fame","mailmap","skills"],
+  "skills": "./skills"
+}

@@ -3,6 +3,7 @@
 > surviving-lines is a command-line tool that counts the lines of code each author still has in a git repository, using git blame, and shows them next to each author's share of commits.
 
 Run it with `npx surviving-lines`. Licence: MIT. Node 22 or newer, git 2.15 or newer, no runtime dependencies.
+Claude Code plugin: `/plugin install surviving-lines --marketplace Bubblegunn/surviving-lines` (adds one skill that runs the CLI).
 Repository: https://github.com/Bubblegunn/surviving-lines
 npm: https://www.npmjs.com/package/surviving-lines
 

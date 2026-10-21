@@ -1,0 +1,17 @@
+{
+  "name": "surviving-lines",
+  "owner": {
+    "name": "Efe Genc",
+    "url": "https://efe-genc-portfolio.vercel.app"
+  },
+  "description": "A skill that runs surviving-lines when you ask who wrote or owns the code in a git repository.",
+  "plugins": [
+    {
+      "name": "surviving-lines",
+      "source": "./",
+      "description": "When you ask who wrote the code that is still in a repo, the agent runs surviving-lines (git blame share against commit share) instead of counting commits or estimating.",
+      "category": "development",
+      "keywords": ["git-blame","code-ownership","bus-factor","git-fame","mailmap","skills"]
+    }
+  ]
+}

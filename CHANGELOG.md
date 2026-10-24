@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.0
+## 0.4.0 (2026-10-24)
 
 **What you get in 0.4.0.** The tool is measured against other Claude Code plugins and plain Claude, and the Claude Code plugin changed to make the answers right (round 13 result: [`bench/head-to-head/results/round13-claude-sonnet-5-5/`](bench/head-to-head/results/round13-claude-sonnet-5-5/)).
 

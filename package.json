@@ -1,6 +1,6 @@
 {
   "name": "surviving-lines",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "surviving-lines is a command-line tool that counts the lines of code each author still has in a git repository, using git blame, and shows them next to each author's share of commits.",
   "keywords": [
     "git",

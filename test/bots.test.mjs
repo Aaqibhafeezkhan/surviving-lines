@@ -36,8 +36,8 @@ test("bots leave both the line side and the commit side, and the run says how ma
     // The shares are of the people only: they add up to one on both sides.
     assert.ok(Math.abs(r.authors.reduce((/** @type {number} */ s, /** @type {any} */ a) => s + a.lineShare, 0) - 1) < 1e-9);
     assert.ok(Math.abs(r.authors.reduce((/** @type {number} */ s, /** @type {any} */ a) => s + a.commitShare, 0) - 1) < 1e-9);
-    assert.match(renderTable(r, 10), /^bots excluded: 2 identities, 20 lines, 3 commits \(--include-bots counts them\)$/m);
-    assert.match(renderMarkdown(r, 10), /^bots excluded: 2 identities, 20 lines, 3 commits/m);
+    assert.match(renderTable(r, 10), /^bots excluded: 2 identities \(dependabot\[bot\], renovate\[bot\]\), 20 lines, 3 commits \(--include-bots counts them\)$/m);
+    assert.match(renderMarkdown(r, 10), /^bots excluded: 2 identities \(dependabot\[bot\], renovate\[bot\]\), 20 lines, 3 commits/m);
   } finally {
     removeRepo(dir);
   }
@@ -97,4 +97,30 @@ test("the JSON carries the bots section and matches the published schema; the CL
   } finally {
     removeRepo(dir);
   }
+});
+
+test("isBotIdentity keeps people whose names or person-shaped addresses end in bot", () => {
+  const people = [
+    ["Tim Talbot", "timtalbot@example.com"],
+    ["Jean Chabot", "jeanchabot@example.com"],
+    ["Gerard Gabbot", "gerardgabbot@example.com"],
+    ["Pierre Guibot", "pierreguibot@example.com"],
+    ["Priya", "priyabot@example.com"],
+    ["Jan Bot", "jan@example.nl"],
+    ["Ion Bot", "ion.bot@example.ro"],
+    ["Ion Bot", "ion@example.ro"],
+  ];
+  for (const [name, mail] of people) assert.equal(isBotIdentity(name, mail), false, `${name} <${mail}>`);
+});
+
+test("isBotIdentity still finds bots by name shape and by bot-like address", () => {
+  const bots = [
+    ["jekyllbot", "jekyllbot@example.com"],
+    ["vue-bot", "bot@example.org"],
+    ["Release Bot", "release-bot@example.org"],
+    ["StepSecurity Bot", "bot@example.io"],
+    ["ReadmeCritic", "frankensteinbot@example.com"],
+    ["Copybara-Service", "copybara-worker@example.com"],
+  ];
+  for (const [name, mail] of bots) assert.equal(isBotIdentity(name, mail), true, `${name} <${mail}>`);
 });

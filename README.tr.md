@@ -16,7 +16,7 @@ Kayıt, bu deponun `bin/surviving-lines.js` dosyasının gerçek bir çalıştı
 
 ## Fark nedir
 
-git-fame 4.2.1, git-who v1.3 ve git-extras 7.5.0 aynı örnek depolarda çalıştırılarak ölçüldü; ayrıntılar [`docs/COMPARISON.md`](docs/COMPARISON.md) içinde, İngilizce tablo [README.md](README.md) içinde. Özet: satır ve commit sayıları, `.git-blame-ignore-revs`, `Co-authored-by:` payı ve uzantı başına toplamlar git-fame ile aynı çıkıyor. Yalnızca bu araçta olanlar: aynı tuzla aynı dosyaları seçen deterministik örnek, varsayılan olarak botları iki paydan çıkarma, adresi olmayan bir `Assisted-by:` satırında durmama, AI asistanı satırlarını ayrı sayma ve iki adresi olan bir kişi için `.mailmap` satırı önerme. git-fame ise tek çalıştırmada birden çok depo, blame tarafına da uygulanan `--since` penceresi ve svg ile yaml çıktısı konularında öndedir. Sık sorulanlar [`docs/FAQ.md`](docs/FAQ.md) içinde.
+git-fame 4.2.1, git-who v1.3 ve git-extras 7.5.0 aynı örnek depolarda çalıştırılarak ölçüldü; ayrıntılar [`docs/COMPARISON.md`](docs/COMPARISON.md) içinde, İngilizce tablo [README.md](README.md) içinde. Özet: satır ve commit sayıları, `.git-blame-ignore-revs`, `Co-authored-by:` payı ve uzantı başına toplamlar git-fame ile aynı çıkıyor. Yalnızca bu araçta olanlar: aynı tuzla aynı dosyaları seçen deterministik örnek, varsayılan olarak botları iki paydan çıkarma, adresi olmayan bir `Assisted-by:` satırında durmama, AI asistanı satırlarını ayrı sayma ve iki adresi olan bir kişi için `.mailmap` satırı önerme. Ayrıca bu araç, hiçbir ignore dosyasında adı geçmeyen biçimlendirme commit'lerini listeler ve sayılarını yanına yazar; git-fame'de böyle bir liste yoktur. git-fame ise tek çalıştırmada birden çok depo, svg ile yaml çıktısı ve blame tarafına da uygulanan `--since` penceresi konularında öndedir. Sık sorulanlar [`docs/FAQ.md`](docs/FAQ.md) içinde.
 
 Commit sayısı etkinliği ölçer. `git blame` ise sonraki her yeniden düzenlemeden sağ çıkanı
 ölçer. İki sayı sanıldığından daha sık ayrışır ve ilginç olan genellikle aradaki boşluktur:
@@ -24,6 +24,12 @@ blame payı commit payının üstünde olan biri başkalarının kodunu değişt
 altında olan biri ise değiştirilen kodu yazmıştır.
 
 Tek dosya, bağımlılık yok, Node 22 ya da üstü, git 2.15 ya da üstü, `git`'in okuyabildiği her depo.
+
+Üç yoldan biriyle çalıştırabilirsiniz:
+
+- `npx surviving-lines` kurmadan bir kez çalıştırır.
+- `/plugin install surviving-lines --marketplace Bubblegunn/surviving-lines` Claude Code eklentisini ekler; minimum Claude Code sürümü için aşağıdaki [Claude Code eklentisi olarak](#claude-code-eklentisi-olarak) bölümüne bakın.
+- `npx skills add Bubblegunn/surviving-lines` beceriyi skills CLI ile ekler.
 
 Git alt komutunu kullanmak için paketi global olarak kurun:
 
@@ -45,7 +51,15 @@ Bu tek adımlı biçim Claude Code 2.1.275 ve üstünde çalışır. Daha eski s
 /plugin install surviving-lines@surviving-lines
 ```
 
-Eklenti tek bir beceri ekler. Aracın cevapladığı soruyu ajana sorduğunuzda ajan tahmin yürütmez, `npx surviving-lines` komutunu kendisi çalıştırır.
+Eklenti tek bir beceri ekler. Aracın cevapladığı soruyu ajana sorduğunuzda ajan tahmin yürütmez, aracı kendisi çalıştırır: önce eklentinin kendi klasöründeki kopyayı, o yoksa kurulu komutu, o da yoksa `npx` kullanır. Beceri; kodun kime ait olduğunu, bir yolu kimin gözden geçirmesi gerektiğini, bir yolun geçmişini, bus factor'ü, sahipliği bir biçimlendirme commit'inin devraldığı durumları, aynı kişinin iki adresini ve yazar başına toplamları soran sorularda devreye girer.
+
+Eklenti ayrıca bir istem ipucu da ekler. Bir istem yinelenen kimliklerle veya kod sahipliğiyle ilgiliyse, bir kanca isteği ve çalışma dizinini okur ve ajan için kısa bir not ekler. Not, ajana tahmin yürütmek yerine beceriyi ve aracı kullanmasını söyler. Depoda şüphelenilen aynı kişi grupları varsa not bunlardan en fazla dördünü, her birini öneren kuralla birlikte listeler (bir isim iki adreste, bir adres iki isim altında, bir isim `@` öncesinde iki alan adında, ya da bir GitHub noreply girişi başka bir isim veya adres adına eşit), her adresin commit sayısıyla birlikte. Not, siz onaylayana kadar grupların tahmin olduğunu her zaman söyler.
+
+Kanca yalnızca salt okunur git komutları çalıştırır (`rev-parse`, `rev-list --count` ve `shortlog -sne --no-merges`). Hiçbir şey yazmaz ve ağ çağrısı yapmaz. Git deposu dışında, git yoksa ve 20.000 commit'in üzerindeki depolarda sessiz kalır; `SURVIVING_LINES_HINT_CAP` bu sınırı değiştirir ve çoğunlukla testler için vardır. Not en fazla 1.200 karakter ekler. Yalnızca Claude Code eklentisinde çalışır, npm komutunda çalışmaz.
+
+Rastgele üretilmiş, 60 yazarlı 10.000 commit'lik bir depoda ölçüldü: eşleşen bir istem yaklaşık 149 ms, eşleşmeyen bir istem yaklaşık 22 ms sürdü (makine meşgulken ölçüldüğü için bunları mertebe olarak okuyun). 20 ilgisiz test isteminin hiçbiri kancayı tetiklemedi. Sınırdaki 10 istemin 5'i tetikledi; örneğin `git blame`'in ne yaptığına dair genel bir soru. Kanca genel bir soruyu deponuz hakkındaki bir istekten ayıramaz.
+
+Kancayı kaldırmak için, eklentinin yerel bir kopyasında `hooks/hooks.json` dosyasını silin (ya da boşaltın), ya da eklentiyi devre dışı bırakın.
 
 ## Örnek
 
@@ -201,9 +215,21 @@ satırı zaten bunları basar.
 --ignore-revs-file <f>  skip the revisions listed in <f> when blaming (git 2.23 or newer);
                        default: .git-blame-ignore-revs at the repository root, when it exists
 --no-ignore-revs     do not read .git-blame-ignore-revs
+--ignore-rev <rev>   skip one commit when blaming (repeatable; git 2.23 or newer)
+--no-detect-reformat turn off the reformat heuristic (on by default): it finds suspected whitespace or quote
+                     commits and, unless --keep-reformat, leaves them out of the numbers
+--keep-reformat      count the suspected reformat commits in the numbers, as before the correction; the block
+                     still lists them. Not applied under --co-authors share
+--merge-identities   count the suggested same-person addresses as one, in memory (nothing written)
+--bus-factor-threshold <n>  percent of the lines counted that the bus factor must reach (default: 50)
+--reviewers <path>   list who should review a file or directory
+--history <path>     list who changed a file or directory, oldest first: first and last commit, commits, lines now
+                       --since and --until do not narrow its dates or commit counts (they can drop a person with no lines left)
 --allow-shallow      run in a shallow clone anyway; every output is marked "shallow clone"
 --cwd <dir>          repository directory (default: current directory)
 ```
+
+Bir terminaldeki kişi bir tabloyu, grup görünümünü ya da reviewers görünümünü ilk kez okuduğunda, stderr'de bir satır GitHub'da yıldız vermesini ister. Bir işaret dosyası, bu satırın o kullanıcı için bir daha çıkmasını önler. `SURVIVING_LINES_NO_STAR_HINT=1` bunu kapatır; `-q` ya da `--quiet` yalnızca o çalıştırmada atlar. CI'da (`CI` tanımlıyken), `CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CODEX_SANDBOX` ya da `AI_AGENT` değişkenlerinden biri tanımlıyken ya da `--json`, `--csv`, `--markdown` ve `--identities` ile hiçbir zaman çıkmaz.
 
 `--` sonrasındaki yollar git'e pathspec olarak geçer; `-- src packages/core` hem blame'i hem
 commit sayımını o dizinlere daraltır. Eğik çizgi içermeyen bir glob dosya adıyla eşleşir, bu
@@ -220,6 +246,89 @@ sıralar; eşitliklerde mevcut satır, commit ve adres sırası korunur. JSON, s
 `sort` alanında taşır ve şema bu alanı tanımlar. Bu özellik [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan)
 tarafından [#30 numaralı issue](https://github.com/Bubblegunn/surviving-lines/issues/30) için eklendi.
 
+## Kim bu dosyayı gözden geçirmeli
+
+`--reviewers <yol>` bir dosyanın ya da dizinin yazarlarını, en çok hayatta kalan satırı olan başta olmak üzere listeler. Her biri için o yol altındaki satırları, orada yaptığı commit'leri, orada en son commit'inin tarihini ve aktif olup olmadığını gösterir. Aktif, o yolda referans commit'in yazar tarihinden önceki bir yıl içinde commit atmış olmak demektir. Tarih saatten değil referans commit'inin yazar tarihinden alınır; bu yüzden cevap çalıştırdığınız güne göre değişmez.
+
+```sh
+npx surviving-lines --reviewers lib
+```
+
+`suggested` satırı en fazla üç kişiyi, önce aktif olanları yazar. Öneri tablonun okuduğu satırları okur; bu yüzden varsayılan olarak dışarıda bırakılan bir biçimlendirme commit'i önerinin de dışındadır. Bu bir başlangıç noktasıdır: kalan kodu kimin yazdığı, bir sonraki değişikliği kimin gözden geçirmesi gerektiğiyle her zaman aynı değildir.
+
+`--reviewers` ve bus factor, bir `.mailmap` iki adresi birleştirene kadar bir kişinin iki adresini ayrı sayar. `suggested` satırı tek istisnadır: yalnızca aynı isme sahip adresleri birleştirir, başka hiçbir şeyi değil.
+
+## Bir yolu kimler şekillendirdi
+
+`--history <yol>` bir dosya ya da dizin alır ve o yolu değiştiren kişileri, en eskiden başlayarak listeler. Her satır o yoldaki ilk ve son commit'i, oradaki commit sayısını ve referansta o kişiye ait kalan satırları verir. Yalnızca biçimlendirme yapan bir commit ayrılır (`set aside`): sayılmaz ve yalnızca biçimlendirme commit'i olan bir kişinin satırı çıkmaz. Listenin altındaki satır, ilk commit'i kimin attığını ve bugün en çok satırı kimin tuttuğunu söyler.
+
+```sh
+npx surviving-lines --history lib/index.js
+```
+
+`--since` ve `--until` bu görünümün tarihlerini ya da commit sayılarını daraltmaz; her zaman referansın tamamını kapsar. Yine de satır düşürebilirler: pencere içinde hiç commit'i olmayan ve kalan satırı olmayan bir kişi listeden çıkar. Sonradan tüm satırları üzerine yazılmış bir kişi, pencere olmayan bir çalıştırmada 0 satırla görünmeye devam eder.
+
+`--history` kendi görünümünü yazdırır; yalnızca `--json` ile birleştirilebilir. `--reviewers`, `--csv`, `--markdown`, `--identities`, `--group-by`, `--suggest-codeowners` ya da `--` sonrası yol kalıplarıyla birleştirilemez.
+
+## Biçimlendirme commit'leri
+
+`git blame -w` boşlukları yok sayar, ama tırnak değişikliğini yok saymaz. Tek tırnağı çift tırnağa çeviren bir biçimlendirici çalıştırması, kodda bir şey değişmese bile yeniden yazdığı her satırı alır. surviving-lines bu tür commit'leri varsayılan olarak arar ve sayıların dışında bırakır. Yalnızca boşluk ya da tırnak değişikliği içeren bir commit algılanmış biçimlendirme commit'i olur: tablo onun satırlarını saymaz, tablonun altındaki blok commit'i adlandırır, tuttuğu hayatta kalan satır sayısını verir ve en çok satırı etkilenecek beş yazar için düzeltme olmadan rakamları ile düzeltme olmadan bus factor'ü yazar.
+
+Algılama bir şüphedir, kanıt değildir. Düzeltmeye güvenmeden önce commit'i `git show <id>` ile okuyun. Düzeltme tabloyu, grup görünümünü, `suggested` önerisini, CSV çıktısını ve `--history` görünümünü etkiler; `--ai-breakdown` düzeltilmiş geçişi okur.
+
+- `--keep-reformat` commit'i yine sayılara katar; blok yine onu listeler ve sayıların onu içerdiğini söyler.
+- `--co-authors share` düzeltmeyi uygulamaz. Bloğu bunu söyler ve sayılar commit'i içerir.
+- Kimliğini deponun kökündeki `.git-blame-ignore-revs` dosyasına eklemek (bu dosya varsayılan olarak okunur) ya da tek bir çalıştırma için `--ignore-rev <rev>` vermek (birden çok kez verilebilir; git 2.23 ya da üstü), commit'i blame'de yok sayar. Algılama o zaman şüphe bulmaz ve blok yazdırılmaz.
+
+`--no-detect-reformat` tespiti kapatır. Tespit, ignore dosyası gibi git 2.23 ya da üstünü gerektirir.
+
+Kontrolün tanımadıkları:
+
+- Boşluk değişikliklerine bakar; JavaScript, TypeScript, Python, JSON, CSS, SCSS, Vue ve Svelte dosyalarında (js, jsx, mjs, cjs, ts, tsx, py, json, css, scss, vue, svelte uzantıları) ayrıca tek tırnağın çift tırnağa çevrilmesine bakar. Diğer dosyalarda yalnızca boşluk katlanır, çünkü orada tırnak değişikliği programı değiştirebilir (örneğin bir kabuk betiğinde).
+- Sondaki virgüller, noktalı virgüller ve parantezler tanınmaz. Bunları ekleyen ya da silen commit listelenmez.
+- Dosya ekleyen, silen ya da yeniden adlandıran bir commit, ya da 1000'den fazla dosyayı değiştiren bir commit değerlendirilmez.
+- Bu bir sezgisel yöntemdir. Listelenen commit bir şüphedir, kanıt değil; yok saymadan önce `git show <id>` ile okuyun.
+
+## Bus factor
+
+Bus factor, hayatta kalan satırları birlikte sayılan satırların belirli bir payına ulaştıran en küçük yazar sayısıdır. Varsayılan pay %50'dir. `--bus-factor-threshold <n>` bunu değiştirir; 0'dan büyük ve en fazla 100 olabilir. Satır tablonun altında yazdırılır:
+
+```
+bus factor 2: Troy Goode <troy@work.example> and Douglas Christopher Wilson together hold 56.5% of 1,985 surviving lines
+```
+
+Commit sayılarını değil satırları izler. Kalan kodun ne kadar yoğunlaştığını ölçer; kimin onu anladığını ölçmez.
+
+## Bu yeni satırlar nasıl görünür
+
+Test deposunda (`expressjs/cors` kopyası, üç sentetik commit; ayrıntı [`docs/HEAD-TO-HEAD.md`](docs/HEAD-TO-HEAD.md) içinde) bu depodaki kod (`node bin/surviving-lines.js`; bir sonraki sürümden sonra `npx surviving-lines`) tablonun altına varsayılan olarak şu satırları yazar. Tek değişiklik, gerçek bir adresin `troy@work.example` ile değiştirilmiş olmasıdır:
+
+```
+identity hint: 1 person may be counted twice (Troy Goode: troy@laptop.example, troy@work.example). The table counts each address separately. Run --identities for the .mailmap lines; only you can confirm it is one person. If they are one person, Troy Goode holds 810 lines (40.8%).
+
+bus factor 2: Troy Goode <troy@work.example> and Douglas Christopher Wilson together hold 70.1% of 1,985 surviving lines
+bus factor = the smallest number of authors whose surviving lines together reach 50% of the lines counted (change with --bus-factor-threshold). It measures how concentrated the code that is left is, not who understands it.
+```
+
+Biçimlendirme commit'i dışarıda bırakıldığında bir blok onu adlandırır ve ne kadar satır yeniden yazdığını söyler. Commit'i yapan kişinin adının yanına satır toplamı koymaz, çünkü bu satırlar o kişinin kodu değildir. Yalnızca düzeltmeyle satır kazanan kişileri, düzeltmeli ve düzeltmesiz sayılarıyla listeler. Bob'un Ada'nın dosyasındaki tüm tırnakları değiştirdiği sentetik bir depodaki (`scripts/fixtures.mjs`, `quotes` fixture'ı) blok:
+
+```
+reformat commit ignored (looks like whitespace and quote changes only): 1 commit
+  commit a5a4525 "style: switch app.js to double quotes" rewrote 30 lines in 1 file (formatting only)
+  The table above does not count it. Authors who gain lines from this: Ada 35 (100.0%) with the correction, 5 (14.3%) without. --keep-reformat counts it; --ignore-rev a5a4525 (or an entry in .git-blame-ignore-revs) sets it aside by hand.
+  bus factor without the correction: 1 (Bob alone leads the plain count)
+```
+
+`--keep-reformat` ile biçimlendirme commit'i sayılara katılır, blok bunu söyler ve kimlik ipucunun son cümlesi şöyle olur: `... If they are one person, Troy Goode holds 715 lines (36.0%).`
+
+## Boş satırlar, dosya görünümü, yalnızca boşluk değiştiren commit
+
+Sayılan satırlardan boş satırlar çıkarıldığında (başlıkta `non-blank; N with blank lines` yazar) yazar tablosuna `with blank` ve `share` sütunları eklenir, `bus factor` satırı iki tabanı da yazar ve fark varsa `counting blank lines: bus factor N` ekler. `--json` çıktısında `linesWithBlank`, `shareWithBlank` ve `busFactor.withBlank` bulunur. Satır sırası boş olmayan satırlara göredir. Varsayılan görünüm, `--reviewers` ve `--history` tablonun altına tek bir `top:` satırı basar: `top: <author> holds <n> non-blank lines (<share>), <m> counting blank lines (<share>)`; böylece alıntılanan tek satır iki sayma biçimini de taşır. Aynı `with blank` ve `share` sütunları `--reviewers`, `--history` ve `--group-by` bloklarında da görünür, `--json` bu satırlara `linesWithBlank` ve `shareWithBlank` ekler.
+
+`--files [n]` her dosya için bir satır basar, en büyük önce (varsayılan 25): satır sayısı, ilk sahip ve payı, sonraki iki sahip, sonra `files: K; one owner above 80% in M; no owner above 50% in P`. `--group-by`, `--csv`, `--markdown`, `--identities`, `--reviewers`, `--history` ve `--co-authors share` ile birlikte kullanılamaz.
+
+Bir dosyanın en az 20 satırını yeniden yazıp `git blame -w` ile görünen hiçbir şeyi değiştirmeyen commit (satır sonu, girinti) hiçbir satıra sahip olmaz, bu yüzden tablolarda görünmez. Her görünüm bunlardan en fazla beşini `whitespace-only commits` satırında yazar: yazar, dosya ve dosyanın şimdiki sahibi. Hiçbir sayıyı değiştirmez.
+
 ## Kim tek kişi
 
 Bir kişi dizüstünden ve iş makinesinden ayrı adreslerle commit attığında, buradaki bütün sayılar
@@ -232,6 +341,34 @@ harf katlamasıyla yapılır.
 Çıktı, deponun köküne konacak bir `.mailmap` dosyasının satırlarını yazar. O dosyayı `git log`,
 `git blame` ve `git shortlog` da okur, yani tek dosya bütün sayıları düzeltir. Araç hiçbir şey
 yazmaz ve iki kimliğin gerçekten aynı kişi olup olmadığını bilemez; kanıtı gösterir ve durur.
+
+Tablonun altında, bir öneri olduğunda tek bir `identity hint:` satırı çıkar. Kişiyi ve adreslerini adlandırır ve `--identities` komutunu gösterir. Son cümlesi, adresler tek kişi olsaydı o kişinin sahip olacağı satır sayısını ve yüzdesini verir; böylece hem tablodaki rakam hem birleşik rakam bildirilebilir. Çalıştırma başına bir kez yazılır; `--group-by` ile de böyledir.
+
+`--merge-identities` önerilen aynı kişi adreslerini yalnızca o çalıştırmada tek kişi sayar. Birleşik satır ilk sıraya gelir ve tablo her birleştirmeyi onun altında adlandırır. Bus factor ile biçimlendirme karşılaştırması da birleşik satırları kullanır. Hiçbir şey yazılmaz. Test deposunda, varsayılan biçimlendirme düzeltmesiyle:
+
+```
+ref HEAD  ·  files 18/18 sampled (1 in 1)  ·  1,985 of 1,995 lines attributed
+git blame -w -M --ignore-rev 62628c0 (auto)  ·  commits 315, merges excluded
+bots excluded: 1 identity, 10 lines, 11 commits (--include-bots counts them)
+
+author                          lines   share  commits   share
+--------------------------------------------------------------
+Troy Goode (2 addresses)          810   40.8%       95   30.2%
+Douglas Christopher Wilson        629   31.7%      143   45.4%
+Íñigo Marquínez Prado              95    4.8%        2    0.6%
+Jon Church                         72    3.6%        3    1.0%
+Sebastian Beltran                  67    3.4%        2    0.6%
+Ulises Gascón                      52    2.6%        3    1.0%
+Ignacio Mangas                     44    2.2%        2    0.6%
+alex94puchades                     34    1.7%        5    1.6%
+Linus Unnebäck                     26    1.3%        1    0.3%
+Ollie Buck                         17    0.9%        1    0.3%
+… 52 more authors
+identities merged in memory (nothing written): Troy Goode = troy@work.example 762 lines 93 commits, troy@laptop.example 48 lines 2 commits; this is a guess from names and addresses; leave out --merge-identities for the unmerged table.
+
+bus factor 2: Troy Goode (2 addresses) and Douglas Christopher Wilson together hold 72.5% of 1,985 surviving lines
+bus factor = the smallest number of authors whose surviving lines together reach 50% of the lines counted (change with --bus-factor-threshold). It measures how concentrated the code that is left is, not who understands it.
+```
 
 ## Her yazıdaki isimler
 
@@ -291,9 +428,18 @@ pip, conda, snap ve docker ile kurulum, maliyet tahmini.
 satırlar dahil her sonucu listeler. Hayatta kalan satır, commit, yok sayılan revizyonlar, ortak yazar payı ve
 uzantı başına toplamlarda ikisi aynı sayıları verir. Yalnızca bu araç dosyaları tuzlu bir hash ile örnekler,
 botları varsayılan olarak iki paydan da çıkarır, iki adresi olan bir kişi için `.mailmap` satırı önerir,
-adresi olmayan bir `Assisted-by:` satırında durmaz ve AI asistanı satırlarını ayrı sayar. git-fame'in
+adresi olmayan bir `Assisted-by:` satırında durmaz ve AI asistanı satırlarını ayrı sayar, hiçbir ignore dosyasında adı geçmeyen biçimlendirme commit'lerini listeler. git-fame'in
 listesinden bir şeye ihtiyacınız varsa onu kullanın; yeniden üretilebilir örnek, kimlik ve bot yönetimi
 gerekiyorsa bunu.
+
+[`docs/HEAD-TO-HEAD.md`](docs/HEAD-TO-HEAD.md) ikinci bir karşılaştırmayı anlatır: bu araç, Claude Code eklentileri project-pilot (komutuyla ve komutsuz), mcp-git-historian ve k41n/busfactor ile düz Claude, aynı örnek depolar hakkındaki aynı sahiplik sorularını yanıtlıyor.
+
+Round 13 sonucu, 24 Ekim 2026'da Claude Sonnet 5.5 (Claude Code 2.1.308) ile, kol ve görev başına üç koşu, her hücre yeni, ölçüt başına beş bağımsız model oyuyla notlandı:
+
+- **z seti, 5 görev (25 ölçüt)**, bu kodu hiç görmemiş bir yazar tarafından yazıldı: bu araç 9,67; en iyi diğer kol (komutuyla project-pilot) 7,33; farkın %95 aralığı +0,33 ile +4,33.
+- **Herkese açık set, 11 görev (55 ölçüt)**, geliştirmede kullanıldı: bu araç 47,67; en iyi diğer kol (düz Claude) 41,00; farkın %95 aralığı +5,00 ile +8,33.
+
+Görev bazında kural (her görevde diğer her koldan önde olmak) z setinde sağlanmadı. Her hücre, plandan sapmalar ve yeniden hesaplama adımı (`python3 -I score.py --check`) [`bench/head-to-head/results/round13-claude-sonnet-5-5/`](bench/head-to-head/results/round13-claude-sonnet-5-5/) içindedir. Sonuç bu görevleri, bu modeli ve bu tarihi kapsar; başka görevler hakkında iddia değildir.
 
 ## Neyi gösteremez
 
@@ -335,5 +481,7 @@ düğmesi elle kopyalama olmadan doğru BibTeX ve APA üretiyor.
 npm test        # node:test, builds a throwaway repository with two authors, a rewrite, a rename and a binary
 npm run lint    # node --check
 ```
+
+Bu araç işinize yaradıysa, GitHub'da bir yıldız başkalarının onu bulmasına yardımcı olur.
 
 MIT.

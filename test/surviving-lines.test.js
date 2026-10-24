@@ -8,7 +8,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
 const bin = pathToFileURL(join(import.meta.dirname, "..", "bin", "surviving-lines.js")).href;
-const { parseArgs, renderJson, fnv1a, inSample, globToRegExp, selected, countBlameLines, analyse, renderTable, renderCsv, renderMarkdown, displayWidth, isolate, foldIdentity, githubLogin, linkIdentities, renderIdentities, gitVersionProblem, MIN_GIT } = await import(bin);
+const { parseArgs, renderJson, fnv1a, inSample, globToRegExp, selected, countBlameLines, analyse, renderTable, renderCsv, renderMarkdown, displayWidth, isolate, foldIdentity, githubLogin, linkIdentities, renderIdentities, sameAddressNames, gitVersionProblem, MIN_GIT } = await import(bin);
 
 /** Build a small repository with two authors, a rewrite, a rename and a binary file. */
 async function fixtureRepo() {
@@ -18,8 +18,8 @@ async function fixtureRepo() {
       ...process.env,
       GIT_AUTHOR_NAME: who === "ada" ? "Ada" : "Bob",
       GIT_AUTHOR_EMAIL: who === "ada" ? "ada@example.com" : "bob@example.com",
-      GIT_COMMITTER_NAME: "CI",
-      GIT_COMMITTER_EMAIL: "ci@example.com",
+      GIT_COMMITTER_NAME: who === "ada" ? "Ada" : "Bob",
+      GIT_COMMITTER_EMAIL: who === "ada" ? "ada@example.com" : "bob@example.com",
       GIT_AUTHOR_DATE: who === "ada" ? "2026-01-10T10:00:00Z" : "2026-03-10T10:00:00Z",
       GIT_COMMITTER_DATE: who === "ada" ? "2026-01-10T10:00:00Z" : "2026-03-10T10:00:00Z",
     };
@@ -51,8 +51,8 @@ async function gapFixtureRepo() {
     ...process.env,
     GIT_AUTHOR_NAME: "Charlie",
     GIT_AUTHOR_EMAIL: "charlie@example.com",
-    GIT_COMMITTER_NAME: "CI",
-    GIT_COMMITTER_EMAIL: "ci@example.com",
+    GIT_COMMITTER_NAME: "Charlie",
+    GIT_COMMITTER_EMAIL: "charlie@example.com",
     GIT_AUTHOR_DATE: "2026-04-10T10:00:00Z",
     GIT_COMMITTER_DATE: "2026-04-10T10:00:00Z",
   };
@@ -144,18 +144,27 @@ test("analyse attributes surviving lines, follows renames, skips binaries, and c
   }
 });
 
-test("default table output stays byte for byte unchanged", async () => {
+test("the table of a small repository with no reformat suspect is exactly the header, the rows, the bus factor lines and the closing lines pinned here", async () => {
   const dir = await fixtureRepo();
   try {
     const r = await analyse(parseArgs(["--cwd", dir]));
     const expected = [
       "ref HEAD  ·  files 3/3 sampled (1 in 1)  ·  21 of 21 lines attributed",
-      "git blame -w -M  ·  commits 3, merges excluded",
+      "git blame -w -M -C  ·  commits 3, merges excluded",
+      "history: begins 2026-01-10 with a commit that adds 3 of 4 files (75%); lines older than that are credited to whoever imported them, so the table describes work since the import",
+      'workflow: rebase or direct commits (0 merge commits, 0% of subjects end in "(#NNN)"); lines are credited to the commit authors',
       "",
       "author      lines   share  commits   share",
       "------------------------------------------",
       "Ada            11   52.4%        1   33.3%",
       "Bob            10   47.6%        2   66.7%",
+      "top: Ada holds 11 non-blank lines (52.4%), 11 counting blank lines (52.4%)",
+      "",
+      "bus factor 1: Ada alone holds 52.4% of 21 surviving lines · to reach 80%: 2 authors",
+      "active bus factor 1 (50% of the 21 lines held by the 2 authors active in the last 365 days): Ada alone; everyone who holds lines committed in that window",
+      "bus factor = the smallest number of authors whose surviving lines together reach 50% of the lines counted (change with --bus-factor-threshold). It measures how concentrated the code that is left is, not who understands it.",
+      "",
+      "mechanical rewrites checked: examined 2 commits holding surviving lines, set aside 0; no other commit looks mechanical (at least 10 files with the same small change, or a formatter, lint fix, codemod or rename tool in the subject).",
       "",
       "What this cannot show: quality of the lines, review work, design done in documents,",
       "or code that was deleted on purpose. Share of surviving lines is about survivorship, not merit.",
@@ -801,4 +810,21 @@ test("interactive run shows progress on stderr while blaming, and --quiet suppre
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("sameAddressNames finds one address under several names and prints a two-address mailmap line", () => {
+  const same = sameAddressNames([
+    { name: "alex94puchades", mail: "alex@example.test", commits: 3 },
+    { name: "Alejandro Caravaca Puchades", mail: "ALEX@example.test", commits: 2 },
+    { name: "Ada", mail: "ada@example.test", commits: 9 },
+    { name: "ADA", mail: "ada@example.test", commits: 1 },
+    { name: "dependabot[bot]", mail: "1+dependabot[bot]@users.noreply.github.com", commits: 4 },
+    { name: "Other Bot", mail: "1+dependabot[bot]@users.noreply.github.com", commits: 1 },
+  ]);
+  // A full name wins over a login even with fewer commits; case-only name differences are one name; bots are left out.
+  assert.deepEqual(same, [{ mail: "alex@example.test", canonical: "Alejandro Caravaca Puchades", aliases: ["alex94puchades"] }]);
+  const out = renderIdentities([], same);
+  assert.match(out, /^Alejandro Caravaca Puchades <alex@example\.test> alex94puchades <alex@example\.test>$/m);
+  assert.doesNotMatch(out, /No split identities/);
+  assert.doesNotMatch(out, /0 identities look split/);
 });

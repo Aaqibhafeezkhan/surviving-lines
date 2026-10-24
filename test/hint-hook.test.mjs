@@ -9,7 +9,7 @@ import { mkdtempSync, readdirSync, readFileSync, realpathSync, renameSync, rmSyn
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { commitAsIdentity, createRepo, git, removeRepo } from "../scripts/fixtures.mjs";
+import { commitAsIdentity, createRepo, git, hookEnv, posixPath, removeRepo, WINDOWS } from "../scripts/fixtures.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const HOOK = join(ROOT, "hooks", "surviving-lines-hint.sh");
@@ -19,17 +19,17 @@ const PROMPT = "who owns the parser module in this repo?";
 function runRaw(input, env = {}) {
   // The working directory is the plugin root, which is itself a repository with many commits. A hook that fell
   // back to "." would therefore print for it, so a silent result proves the hook did not use the process directory.
-  return spawnSync("sh", [HOOK], {
+  return spawnSync("sh", [posixPath(HOOK)], {
     input,
     encoding: "utf8",
     cwd: ROOT,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, CLAUDE_PLUGIN_ROOT: ROOT, ...env },
+    env: hookEnv(ROOT, env),
   });
 }
 
 /** @param {string} prompt @param {string} cwd @param {Record<string, string>} [env] */
 function hook(prompt, cwd, env = {}) {
-  return runRaw(JSON.stringify({ session_id: "t", cwd, hook_event_name: "UserPromptSubmit", prompt }), env);
+  return runRaw(JSON.stringify({ session_id: "t", cwd: posixPath(cwd), hook_event_name: "UserPromptSubmit", prompt }), env);
 }
 
 /** The additionalContext of one run. Asserts exit 0, one JSON line and the event name. @param {import("node:child_process").SpawnSyncReturns<string>} result */
@@ -348,7 +348,7 @@ function repoNamed(name) {
   return { dir, parent };
 }
 
-test("a working directory with a double quote in its name stays silent, and is not replaced by the process directory", () => {
+test("a working directory with a double quote in its name stays silent, and is not replaced by the process directory", { skip: WINDOWS ? "Windows file names cannot contain a double quote" : false }, () => {
   const { dir, parent } = repoNamed('a"b');
   try {
     const result = hook(PROMPT, dir);
@@ -360,7 +360,7 @@ test("a working directory with a double quote in its name stays silent, and is n
   }
 });
 
-test("a working directory with a backslash in its name stays silent, and is not replaced by the process directory", () => {
+test("a working directory with a backslash in its name stays silent, and is not replaced by the process directory", { skip: WINDOWS ? "a backslash is a path separator on Windows" : false }, () => {
   const { dir, parent } = repoNamed("a\\b");
   try {
     const result = hook(PROMPT, dir);

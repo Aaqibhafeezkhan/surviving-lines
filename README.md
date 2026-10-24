@@ -14,6 +14,8 @@ npx surviving-lines
 
 The recording is a real run of this repository's `bin/surviving-lines.js`, scripted in [`docs/demo.tape`](docs/demo.tape).
 
+Benchmark: [round 13 result](#compared-with-git-shortlog-and-git-fame).
+
 ## How this differs
 
 Measured with git-fame 4.2.1, git-who v1.3 and git-extras 7.5.0 on the same fixture repositories. Each row below is a `tie` or `ours only` row of [`docs/COMPARISON.md`](docs/COMPARISON.md), which `npm run compare` generates.
@@ -655,8 +657,10 @@ and bot handling.
 
 Round 13 result, measured on 2026-10-24 with Claude Sonnet 5.5 (Claude Code 2.1.308), three runs per arm and task, every cell new, graded by five independent model votes per criterion:
 
+![Bar chart of round 13 scores: surviving-lines and five other arms on the sealed set of 5 tasks and the public set of 11 tasks](docs/benchmark-round13.png)
+
 - **Sealed set z, 5 tasks (25 criteria)**, written by an author who never saw this code: this tool 9.67, best other arm (project-pilot with its command) 7.33; 95% interval of the difference +0.33 to +4.33.
-- **Public set, 11 tasks (55 criteria)**, which the development used: this tool 47.67, best other arm (plain Claude) 41.00; 95% interval of the difference +5.00 to +8.33.
+- **Public set, 11 tasks (51 criteria)**, which the development used: this tool 47.67, best other arm (plain Claude) 41.00; 95% interval of the difference +5.00 to +8.33.
 
 The per-task rule (ahead of every other arm on every task) is not met on set z. Every cell, the departures from the plan and a recompute step (`python3 -I score.py --check`) are in [`bench/head-to-head/results/round13-claude-sonnet-5-5/`](bench/head-to-head/results/round13-claude-sonnet-5-5/). The result covers these tasks, this model and this date; it is not a claim about other tasks.
 

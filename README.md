@@ -14,7 +14,7 @@ npx surviving-lines
 
 The recording is a real run of this repository's `bin/surviving-lines.js`, scripted in [`docs/demo.tape`](docs/demo.tape).
 
-Benchmark: [round 13 result](#compared-with-git-shortlog-and-git-fame).
+Benchmark: [round 13 result](#compared-with-git-shortlog-and-git-fame). Write-up: [surviving-lines scored highest in a six-arm code-ownership benchmark](https://dev.to/efe_genc/surviving-lines-scored-highest-in-a-six-arm-code-ownership-benchmark-5de5).
 
 ## How this differs
 
@@ -663,6 +663,8 @@ Round 13 result, measured on 2026-10-24 with Claude Sonnet 5.5 (Claude Code 2.1.
 - **Public set, 11 tasks (51 criteria)**, which the development used: this tool 47.67, best other arm (plain Claude) 41.00; 95% interval of the difference +5.00 to +8.33.
 
 The per-task rule (ahead of every other arm on every task) is not met on set z. Every cell, the departures from the plan and a recompute step (`python3 -I score.py --check`) are in [`bench/head-to-head/results/round13-claude-sonnet-5-5/`](bench/head-to-head/results/round13-claude-sonnet-5-5/). The result covers these tasks, this model and this date; it is not a claim about other tasks.
+
+Full write-up: [surviving-lines scored highest in a six-arm code-ownership benchmark](https://dev.to/efe_genc/surviving-lines-scored-highest-in-a-six-arm-code-ownership-benchmark-5de5).
 
 ## What it cannot show
 

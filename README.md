@@ -701,7 +701,7 @@ I needed to describe my own share of two private codebases in a way that another
 could check without trusting me. Commit counts were the obvious number and also the
 wrong one: on one codebase my blame share was higher than my commit share, on another
 it was lower, and both facts mattered more than either count. The method is written up
-in [How to show engineering ownership when the repositories are private](https://efe-genc-portfolio.vercel.app/writing/showing-ownership-private-repositories/);
+in [How to show engineering ownership when the repositories are private](https://efegenc.me/writing/showing-ownership-private-repositories/);
 this is the script, cleaned up so it runs anywhere.
 
 ## Thanks

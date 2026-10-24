@@ -4,7 +4,7 @@
   "description": "A skill that makes Claude Code run surviving-lines to show who wrote the code that still survives in a git repository, next to commit share.",
   "author": {
     "name": "Efe Genc",
-    "url": "https://efe-genc-portfolio.vercel.app"
+    "url": "https://efegenc.me"
   },
   "homepage": "https://github.com/Bubblegunn/surviving-lines",
   "repository": "https://github.com/Bubblegunn/surviving-lines",

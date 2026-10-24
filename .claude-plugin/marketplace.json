@@ -2,7 +2,7 @@
   "name": "surviving-lines",
   "owner": {
     "name": "Efe Genc",
-    "url": "https://efe-genc-portfolio.vercel.app"
+    "url": "https://efegenc.me"
   },
   "description": "A skill that runs surviving-lines when you ask who wrote or owns the code in a git repository.",
   "plugins": [

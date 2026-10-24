@@ -460,7 +460,7 @@ Araç bunu her tablonun altına basar, çünkü sayıyı kötüye kullanmak kola
 biçimde anlatmam gerekiyordu. Commit sayısı açık seçenekti ve yanlış olandı: bir kod
 tabanında blame payım commit payımdan yüksekti, diğerinde düşüktü ve iki gerçek de sayıların
 ikisinden fazlasını anlatıyordu. Yöntem
-[How to show engineering ownership when the repositories are private](https://efe-genc-portfolio.vercel.app/writing/showing-ownership-private-repositories/)
+[How to show engineering ownership when the repositories are private](https://efegenc.me/writing/showing-ownership-private-repositories/)
 yazısında anlatılıyor; bu, her yerde çalışacak biçimde temizlenmiş betiktir.
 
 ## Atıf

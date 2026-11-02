@@ -75,3 +75,49 @@ test("TA-2: a --sample run prints a sampled note on stderr for --csv, so a saved
     },
   );
 });
+
+const { isFormatOnlyChange } = await import("../bin/surviving-lines.js");
+
+test("TA-3: a trailing comma added or removed before a closing bracket is layout in JavaScript and TypeScript only", () => {
+  assert.equal(isFormatOnlyChange("call(a, b, c);\n", "call(\n  a,\n  b,\n  c,\n);\n", "src/x.ts"), true);
+  assert.equal(isFormatOnlyChange("const o = { a: 1, b: 2 };\n", "const o = {\n  a: 1,\n  b: 2,\n};\n", "src/x.js"), true);
+  // Python: (1,) is a tuple and (1) is not. JSON: a trailing comma is invalid. Neither is layout.
+  assert.equal(isFormatOnlyChange("x = (1)\n", "x = (1,)\n", "a.py"), false);
+  assert.equal(isFormatOnlyChange("[1, 2]\n", "[1, 2,]\n", "a.json"), false);
+  // Array holes differ from the same array without them.
+  assert.equal(isFormatOnlyChange("const a = [];\n", "const a = [,];\n", "a.js"), false);
+  assert.equal(isFormatOnlyChange("const a = [1,];\n", "const a = [1,,];\n", "a.js"), false);
+  // A comma that is not before a bracket is a real change.
+  assert.equal(isFormatOnlyChange("f(a, b)\n", "f(a)\n", "a.js"), false);
+});
+
+test("TA-3b: a Prettier-style wrap that adds trailing commas in 15 files is set aside, and the author keeps the lines", async () => {
+  await withRepo(
+    (dir) => {
+      /** @type {Record<string, string>} */
+      const before = {};
+      /** @type {Record<string, string>} */
+      const after = {};
+      for (let i = 0; i < 15; i++) {
+        let b = "";
+        let a = "";
+        for (let j = 1; j <= 10; j++) {
+          b += `call(argA${j}, argB${j}, argC${j});\n`;
+          a += `call(\n  argA${j},\n  argB${j},\n  argC${j},\n);\n`;
+        }
+        before[`f${i}.js`] = b;
+        after[`f${i}.js`] = a;
+      }
+      commitAsIdentity(dir, ["Alice", "a@example.com"], day(0), "init", before);
+      commitAsIdentity(dir, ["Bob", "b@example.com"], day(1), "misc cleanup", after);
+    },
+    async (dir) => {
+      const r = await analyse(parseArgs(["--cwd", dir, "-q"]));
+      // git's own ignore-rev heuristic leaves a few added lines (a lone closing bracket) on the reformat commit, so
+      // the assertion is the share, not an exact count; without the fix Bob holds all 750.
+      const alice = r.authors.find((a) => a.author === "Alice")?.lines ?? 0;
+      const bob = r.authors.find((a) => a.author === "Bob")?.lines ?? 0;
+      assert.ok(alice >= 700 && bob <= 50, `Alice ${alice}, Bob ${bob}`);
+    },
+  );
+});

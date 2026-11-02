@@ -1695,13 +1695,32 @@ const QUOTE_FOLD_EXTENSIONS = new Set(["js", "jsx", "mjs", "cjs", "ts", "tsx", "
  * @param {string} [path]
  */
 export function normaliseForFormat(text, path) {
-  const squeezed = text.replace(/\s+/g, "");
+  let squeezed = text.replace(/\s+/g, "");
   if (path !== undefined) {
     const dot = path.lastIndexOf(".");
     const ext = dot > path.lastIndexOf("/") ? path.slice(dot + 1).toLowerCase() : "";
     if (!QUOTE_FOLD_EXTENSIONS.has(ext)) return squeezed;
+    if (TRAILING_COMMA_EXTENSIONS.has(ext)) squeezed = dropTrailingCommas(squeezed);
+  } else {
+    squeezed = dropTrailingCommas(squeezed);
   }
   return squeezed.replace(/'/g, '"');
+}
+
+/**
+ * Extensions where a comma right before a closing bracket is layout: in JavaScript and TypeScript `f(a,)`, `[a,]` and
+ * `{a,}` mean the same as `f(a)`, `[a]` and `{a}`, and Prettier adds or removes exactly these commas. Python is not here
+ * (`(1,)` is a tuple, `(1)` is not), nor are JSON (a trailing comma is invalid there) or any language not listed.
+ */
+const TRAILING_COMMA_EXTENSIONS = new Set(["js", "jsx", "mjs", "cjs", "ts", "tsx", "mts", "cts"]);
+
+/**
+ * Removes a comma that stands directly before `)`, `]` or `}` in whitespace-free text. A comma that follows another
+ * comma or an opening bracket stays, so the array holes `[,]` and `[1,,]` still differ from `[]` and `[1,]`.
+ * @param {string} squeezed
+ */
+function dropTrailingCommas(squeezed) {
+  return squeezed.replace(/([^,([{]),(?=[)\]}])/g, "$1");
 }
 
 /**

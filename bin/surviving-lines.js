@@ -915,7 +915,9 @@ async function listTextFiles(o) {
   // -z output: "added\tdeleted\tpath\0" for plain entries; renames cannot occur against the empty tree.
   for (const rec of out.split("\0")) {
     if (!rec) continue;
-    const [added, , path] = rec.split("\t");
+    // A path may hold a tab, so everything after the second tab is the path.
+    const [added, , ...pathParts] = rec.split("\t");
+    const path = pathParts.length ? pathParts.join("\t") : undefined;
     if (added === "-" || path === undefined || notBlamable.has(path)) continue;
     files.push({ path, lines: Number(added) });
   }
@@ -3014,7 +3016,8 @@ export function parseChangedFiles(nameStatus, numstat) {
   const nrec = numstat.split("\0");
   for (let i = 0; i < nrec.length; i++) {
     if (!nrec[i]) continue;
-    const [a, d, p] = nrec[i].split("\t");
+    const [a, d, ...pParts] = nrec[i].split("\t");
+    const p = pParts.join("\t");
     const binary = a === "-";
     // A rename is "added\tdeleted\t\0old\0new\0": the path field is empty and the two paths follow.
     const target = p === "" ? nrec[i + 2] : p;

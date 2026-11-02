@@ -121,3 +121,16 @@ test("TA-3b: a Prettier-style wrap that adds trailing commas in 15 files is set 
     },
   );
 });
+
+test("TA-4: a file whose name contains a tab is counted, and does not stop the run", { skip: process.platform === "win32" ? "a tab cannot be in a Windows file name" : false }, async () => {
+  await withRepo(
+    (dir) => {
+      commitAsIdentity(dir, ["Alice", "a@example.com"], day(0), "a", { "tab\there.js": lines("t", 7), "plain.js": lines("p", 3) });
+    },
+    async (dir) => {
+      const r = await analyse(parseArgs(["--cwd", dir, "-q"]));
+      assert.equal(r.authors.find((a) => a.author === "Alice")?.lines, 10);
+      assert.equal(r.sample.filesTotal, 2);
+    },
+  );
+});

@@ -16,16 +16,22 @@ export const MARKER = "<!-- surviving-lines-summary -->";
 /**
  * The comment text: the marker, a heading, the table the tool printed, and what the table covers.
  * @param {string} markdown
+ * @param {{ sample?: string }} [opts] sample is the action's `sample` input; anything but "1" or empty marks the comment SAMPLED
  * @returns {string}
  */
-export function buildBody(markdown) {
+export function buildBody(markdown, opts = {}) {
+  const n = Number(opts.sample);
+  const sampled = Number.isInteger(n) && n > 1;
   return [
     MARKER,
     "### Surviving lines",
+    ...(sampled ? ["", `> **SAMPLED RUN: 1 file in ${n} was read.** Every share below is an estimate that can move by tens of points with another seed. Set \`sample: 1\` for exact numbers.`] : []),
     "",
     markdown.trim(),
     "",
-    "<sub>The whole repository at this pull request's merge commit, not only the files it changes. Updated on every push. Share of surviving lines is not a measure of merit.</sub>",
+    sampled
+      ? "<sub>A sample of the files at this pull request's merge commit, not the whole repository and not only the files it changes. Updated on every push. Share of surviving lines is not a measure of merit.</sub>"
+      : "<sub>The whole repository at this pull request's merge commit, not only the files it changes. Updated on every push. Share of surviving lines is not a measure of merit.</sub>",
     "",
   ].join("\n");
 }
@@ -62,7 +68,7 @@ function main() {
     process.exit(2);
   }
   try {
-    console.log(`comment ${postOrUpdate({ repo: REPO, pr: PR, body: buildBody(readFileSync(file, "utf8")) })}`);
+    console.log(`comment ${postOrUpdate({ repo: REPO, pr: PR, body: buildBody(readFileSync(file, "utf8"), { sample: process.env.SL_SAMPLE }) })}`);
   } catch (e) {
     // A pull request from a fork gets a read-only token, so this is expected there. The table is already
     // in the job summary, so say so and do not fail the build.

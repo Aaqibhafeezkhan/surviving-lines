@@ -96,7 +96,7 @@ To name a second reviewer, do not read the `active only` line alone. Recommend t
 - `--group-by dir`, `dir:2` or `ext` gives one block per directory or file type. `--suggest-codeowners` with `--group-by dir` prints CODEOWNERS lines for the user to review.
 - `--since 2025-01-01 --until 2025-12-31` limits the commit share to a window. The line share is always for the ref.
 - `--json`, `--csv` or `--markdown` change the format. `--top <k>`, `--include <glob>` and `--exclude <glob>` change the rows and files. `--co-authors share` splits credit with `Co-authored-by` trailers. `--ai-breakdown` counts assistant trailers.
-- For a large repository add `--sample 5`, call it a sample, and never call a sampled share exact: it can move tens of points between seeds (README, "How much a sample can move"). If a share decides something, run without `--sample`.
+- Only a full run is exact. `--sample 5` (large repositories only): write "SAMPLED", quote the `range` (a spread, not a confidence interval; it missed the top share in 5% to 37% of seeds), flag shares on few files (`*`).
 - `--no-detect-reformat` turns the reformat check off, `--keep-reformat` counts a detected reformat commit anyway, and `--merge-identities` counts suggested same-person addresses as one (in memory).
 
 Bots are left out of both columns by default. The bots line under the header says how much was removed. `--include-bots` counts them.

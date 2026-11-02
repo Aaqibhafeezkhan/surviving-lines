@@ -13,7 +13,9 @@ const { MARKER, buildBody, postOrUpdate } = await import("../scripts/action-comm
 
 test("action.yml: inputs, the version default, and the shallow refusal", () => {
   for (const name of ["sample", "top", "args", "comment", "version", "package"]) assert.match(action, new RegExp(`^  ${name}:$`, "m"), name);
-  assert.match(action, /^  sample:\n(?:    .*\n)*?    default: "5"$/m);
+  // Trust pass: a pull request comment must not show a sampled figure unless the workflow asked for one.
+  assert.match(action, /^  sample:\n(?:    .*\n)*?    default: "1"$/m);
+  assert.match(action, /::warning title=Sampled run/, "a sampled run raises an annotation");
   // The release script rewrites this default and the release gate compares it with package.json.
   const m = /^  version:\n(?:    (?!default:).*\n)*    default: "([^"]*)"/m.exec(action);
   assert.equal(m?.[1], pkg.version);
@@ -37,6 +39,16 @@ test("buildBody starts with the marker, keeps the table, and says what it covers
   assert.match(body, /\| Ada \| 3 \|/);
   assert.match(body, /whole repository/);
   assert.doesNotMatch(body, /\u2014/);
+});
+
+test("buildBody of a sampled run says so above the table and does not claim the whole repository", () => {
+  const body = buildBody("| author | lines |\n| --- | ---: |\n| Ada | 3 |\n", { sample: "5" });
+  const lines = body.split("\n");
+  assert.equal(lines[0], MARKER);
+  assert.match(lines.slice(1, 5).join("\n"), /SAMPLED/);
+  assert.match(body, /1 file in 5/);
+  assert.doesNotMatch(body, /The whole repository at this pull request/);
+  for (const full of [buildBody("t"), buildBody("t", { sample: "1" }), buildBody("t", { sample: "" })]) assert.doesNotMatch(full, /SAMPLED/);
 });
 
 /** A fake `gh` on PATH that logs every call and answers the comment listing from STATE_FILE. */

@@ -6,9 +6,9 @@ branding:
   color: blue
 inputs:
   sample:
-    description: Blame every n-th file, chosen by a hash of the path (1 blames every file). The rate is printed in the comment.
+    description: Blame every n-th file, chosen by a hash of the path. The default 1 blames every file and gives exact counts. A value above 1 is opt-in for repositories too large to blame in full; the comment and the job log then say SAMPLED, and the shares are estimates that can move by tens of points.
     required: false
-    default: "5"
+    default: "1"
   top:
     description: Rows to print.
     required: false
@@ -55,6 +55,9 @@ runs:
           if [ -n "${SL_PACKAGE}" ]; then npx --yes --package "${SL_PACKAGE}" surviving-lines "$@"
           else npx --yes "surviving-lines@${SL_VERSION}" "$@"; fi
         }
+        if [ "${SL_SAMPLE}" != "1" ]; then
+          echo "::warning title=Sampled run::surviving-lines read 1 file in ${SL_SAMPLE}. Every share is an estimate, not the repository's count. Set sample: 1 for exact numbers."
+        fi
         # SL_ARGS is split on spaces on purpose (set -f above stops a pattern such as *.lock from being expanded
         # against the files here): it holds options, and it reaches the command through the environment, never
         # through the script text.
@@ -67,5 +70,6 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
         PR: ${{ github.event.pull_request.number }}
+        SL_SAMPLE: ${{ inputs.sample }}
         REPO: ${{ github.repository }}
       run: node "$GITHUB_ACTION_PATH/scripts/action-comment.mjs" surviving-lines.md

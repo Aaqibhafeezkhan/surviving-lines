@@ -376,7 +376,7 @@ jobs:
 ```
 
 It comments the Markdown table for the whole repository at the merge commit and updates that comment on every push.
-`sample` (default 5), `top`, `args` (more options) and `comment` are inputs. Pin the actions to commits in your own
+`sample` (default 1, every file; a value above 1 is opt-in and the comment then starts with a SAMPLED line and the job log gets a warning annotation), `top`, `args` (more options) and `comment` are inputs. Pin the actions to commits in your own
 workflow. A pull request from a fork gets a read-only token, so there the table is only in the job summary. Nothing
 fails because of a share.
 

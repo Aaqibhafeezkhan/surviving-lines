@@ -386,15 +386,16 @@ const UNRELATED_PROMPTS = [
 ];
 /** One prompt per generic pattern added for ordinary ownership questions; each is matched by that pattern alone. */
 const SINGLE_PATTERN_PROMPTS = new Map([
-  ["(^|[^a-z])owner(s|ship)?([^a-z]|$)", "the owner of this module"],
-  ["(^|[^a-z])reviewers?([^a-z]|$)", "pick a reviewer for this change"],
+  ["(^|[^a-z])owners? (of|for) (this|the|a) (repo|repository|code|codebase|directory|folder|module|package|path|file)", "the owner of this module"],
+  ["ownership (of|by|share)", "ownership of the parser"],
+  ["(suggest|suggested|recommend|best|likely) reviewers?", "pick the best reviewer please"],
+  ["who should be (the )?(default |right |main )?(reviewer|owner)s?", "who should be the main reviewer"],
   ["who (should|can|do|would) (i|we) (ask|talk|contact|go|turn)", "who can we contact about this"],
   ["one[- ]person (project|library|package)", "this is a one person library"],
-  ["(inherited|took over|taking over|taken over|became (the )?maintainer)", "she took over last year"],
   ["who is (really )?behind", "who is behind this"],
   ["how much of (the|that|this) (code|library|package|crate|repo)", "how much of this crate is old"],
   ["really (theirs|his|hers|written by)", "is it really hers"],
-  ["who (really )?(wrote|built)", "who really built it"],
+  ["who (really )?(wrote|built) (most of )?(this|the) (repo|repository|codebase|project|library|package|module|code|directory|folder)", "who really built the codebase"],
   ["authorship", "authorship of the parser"],
   ["truck factor", "what is the truck factor"],
   ["(look|looks|seem|seems) like the (author|owner|maintainer)", "he seems like the maintainer"],

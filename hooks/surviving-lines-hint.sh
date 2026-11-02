@@ -45,6 +45,7 @@ printf '%s\n' "$lc" | grep -Eq \
   -e 'who (is|are) (the |its )?owners?' \
   -e 'ownership (of|by|share)' \
   -e '(suggest|suggested|recommend|best|likely) reviewers?' \
+  -e 'who should be (the )?(default |right |main )?(reviewer|owner)s?' \
   -e 'reviewers? (for|of) (this|the|a) (file|change|diff|path|directory|folder|pr|pull request)' \
   -e 'who (should|can|do|would) (i|we) (ask|talk|contact|go|turn)' \
   -e 'one[- ]person (project|library|package)' \

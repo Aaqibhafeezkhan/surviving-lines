@@ -160,6 +160,8 @@ seçildiği için tek bir büyük dosya payı oynatabilir. Tek bir sayı önemli
 `sample.seed`, `filesSampled` ve `linesAttributed` alanlarını yanına yazın; tablonun ilk
 satırı zaten bunları basar.
 
+0.5.0'dan beri örneklenmiş bir çalıştırma tabloya ve Markdown'a `range` ve `files` sütunlarını ekler (CSV'de `line_share_low`, `line_share_high`, `files`; `--json`'da `authors[].spread`, `sample.complete` `false`). Örneklenen dosyalar yolun ikinci bir hash'iyle dört alt örneğe bölünür, her yazarın payı her alt örnekte alınır, aralık dört payın en düşüğü ve en yükseğidir. Bu **alt örnekler arasındaki yayılmadır, güven aralığı değildir**; alt örnekler çalıştırmanın dörtte biri olduğu için aralık geniştir ve çok büyük tek bir dosya yine de bir alt örneğe düşer. `files`, yazarın hayatta kalan satırı olan örneklenmiş dosya sayısıdır; 5'in altı `*` ile işaretlenir, çünkü o pay çok az dosyaya dayanır. 8'den az örneklenmiş dosyada aralık yoktur (`n/a`). Ölçüm (2026-11-02, 1.000 tuz, gönderilen `sampleSpread` ile, her depo için dosya başına blame): `--sample 5` ile aralık, 1. sıradaki yazarın tam çalıştırma payını flask'ta %87, vue core'da %95, jquery'de %63 oranında içerdi (jquery'de 8.654 satırlık tek dosya yüzünden); 5. sıradaki yazar için flask'ta %35, vue core'da %18. Aralık, bir sayının ne kadar oynayabileceğine dair bir uyarıdır, gerçek değerin içinde olduğu sözü değildir. Bir pay bir karar belirliyorsa `--sample` olmadan çalıştırın. GitHub Action'ın `sample` girdisinin varsayılanı artık 1'dir (tam çalıştırma); 1'den büyük bir değer isteğe bağlıdır ve yorum "SAMPLED" satırıyla başlar.
+
 ## Ne sayar
 
 - `lines` sütunu, örneklenen dosyalarda, `git blame -w -M`'nin gördüğü hâliyle son
@@ -224,6 +226,7 @@ satırı zaten bunları basar.
 --json               print JSON instead of a table
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --markdown           print a Markdown table
+--svg                print one shareable SVG card: line share, commit share, their difference, scope, ref, date and whether the run was sampled. No script or network; names are escaped
 --identities         list addresses that look like one person, with .mailmap lines
 --co-authors <mode>  none (default) or share: split each line and commit equally between the author
                      and the Co-authored-by trailer identities (.mailmap applies to them)
@@ -348,6 +351,14 @@ Sayılan satırlardan boş satırlar çıkarıldığında (başlıkta `non-blank
 
 Bir dosyanın en az 20 satırını yeniden yazıp `git blame -w` ile görünen hiçbir şeyi değiştirmeyen commit (satır sonu, girinti) hiçbir satıra sahip olmaz, bu yüzden tablolarda görünmez. Her görünüm bunlardan en fazla beşini `whitespace-only commits` satırında yazar: yazar, dosya ve dosyanın şimdiki sahibi. Hiçbir sayıyı değiştirmez.
 
+## Paylaşılacak kart
+
+```sh
+npx surviving-lines --svg > surviving-lines.svg
+```
+
+`--svg`, tabloyla aynı analizden tek bir SVG kart basar: en üstteki yazarlar için hayatta kalan satır payı (dolu çubuk), commit payı (çizgili çubuk), iki sayı ve aralarındaki fark (puan). Kart kapsamı, ref'i, ref'in commit tarihini ve çalıştırmanın tam mı yoksa SAMPLED mı olduğunu (oran, tuz ve aralıklarla) yazar; altında hayatta kalan satır payının bir kalite ya da üretkenlik puanı olmadığını söyler. Çıktı deterministiktir; betik, yazı tipi dosyası, görsel ya da ağ adresi içermez; açık ve koyu kipte okunur; iki işaret yalnız renkte değil biçimde de ayrılır. Her yazar adı, adres, yol ve ref kaçışlanır. Kart tek bir anın görüntüsüdür; zaman içindeki payları göstermez (bunun için #18 açık).
+
 ## Kim tek kişi
 
 Bir kişi dizüstünden ve iş makinesinden ayrı adreslerle commit attığında, buradaki bütün sayılar
@@ -356,6 +367,8 @@ görünmesi, aynı adres adının iki alan adında görünmesi ve bir GitHub nor
 kullanıcı adının başka bir satırda isim ya da adres olarak geçmesi. `dev@` gibi rol adresleri ve
 bot adresleri dışarıda bırakılır. Karşılaştırma, Türkçe bir ismin kendisiyle eşleşmesini sağlayan
 harf katlamasıyla yapılır.
+
+0.5.0'dan beri aynı ismin iki *farklı şirketin* alan adında görünmesi yalnızca zayıf bir öneridir (iki kişinin ismi aynı olabilir); `--merge-identities` bunu birleştirmez, ikinci bir kanıt türüyle (tam ismin öteki adresin adı olması gibi) güçlü olur. Kişisel e-posta sağlayıcıları, GitHub noreply adresleri ve aynı kuruluşun alt alan adları güçlü kalır. Her öneri `effect on shares if one person: 40.0% + 26.7% = 66.7%` satırıyla birleştirmenin paylara etkisini sayıyla gösterir (`--json`'da `identityHints.people[].members`).
 
 Çıktı, deponun köküne konacak bir `.mailmap` dosyasının satırlarını yazar. O dosyayı `git log`,
 `git blame` ve `git shortlog` da okur, yani tek dosya bütün sayıları düzeltir. Araç hiçbir şey

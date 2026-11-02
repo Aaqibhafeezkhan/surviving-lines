@@ -203,11 +203,34 @@ for the share of the top author. The full-run share is the truth the samples are
 
 So a 1-in-5 sample can be close (vuejs/core, about 8 points either way) or far off (jquery, where one 8,654-line file, `test/data/jquery-3.7.1.js`, is 17% of the counted lines and all of it is one author's). A textbook 95% interval, which treats the files
 as a random draw and estimates the error from the sampled files, covered the full-run share in 38% to 92% of the
-seeds, not 95%. For that reason the tool prints no confidence interval for a sampled run: the hash is
-deterministic and the files are not equal in size, so the interval would claim a precision the numbers do not
-have. A sampled run says so in the header line, in `--json` (`sample.every` above 1) and, for `--csv`, on stderr.
-Use `--sample` to look, run without it to quote. The measurement script and the three raw tables are in the
-trust-pass report; the figures above are from one run per repository and will differ on other repositories.
+seeds, not 95%. A sampled run says so in the header line, in `--json` (`sample.complete` is `false`, `sample.every` is above 1) and,
+for `--csv`, on stderr. Use `--sample` to look, run without it to quote. The figures above are from one run per repository and will differ on other repositories.
+
+### The range a sampled run prints
+
+Since 0.5.0 a sampled run adds a `range` and a `files` column to the table and Markdown (`line_share_low`, `line_share_high` and `files` in CSV, `authors[].spread` in `--json`). The sampled files are dealt into four sub-samples by a second hash of the path, each author's share is taken inside each sub-sample, and the range is the lowest and highest of the four. It is a **spread between sub-samples, not a confidence interval**: the sub-samples are a quarter of the run, so the range is wide, and one very large file still falls into one sub-sample only. `files` is how many sampled files the author has surviving lines in; below 5 it is marked `*` because the share then rests on very few files. With fewer than 8 sampled files there is no range (`n/a`). A real sampled run on the synthetic fixture of `test/svg-card.test.mjs` (60 files, true share of Ada 66.7%):
+
+```
+author      lines   share           range  files  commits   share  last commit
+------------------------------------------------------------------------------
+Ada           200   66.7%  42.9% to 80.0%     20        1   33.3%  2026-01-01
+Bob            70   23.3%  20.0% to 28.6%      7        1   33.3%  2026-01-02
+Cy             30   10.0%   0.0% to 28.6%     3*        1   33.3%  2026-01-03
+```
+
+How often the range contained the full-run share (measured on 2026-11-02 with `sampleSpread` as shipped, 1,000 seeds per cell, over the
+per-file blame of all tracked files of a fresh clone, authors by address without merging; the full-run shares differ slightly from the table above, which used the tool's own file selection):
+
+| repository | `--sample` | range contained the true share, author ranked 1 | ranked 2 | ranked 5 |
+|---|---|---|---|---|
+| pallets/flask | 5 | 87% | 89% | 35% |
+| pallets/flask | 10 | 89% | 89% | 38% |
+| vuejs/core | 5 | 95% | 89% | 18% |
+| vuejs/core | 10 | 94% | 86% | 10% |
+| jquery/jquery | 5 | 63% | 86% | 90% |
+| jquery/jquery | 10 | 63% | 86% | 85% |
+
+So the range usually contains the share of the largest authors (87% to 95%, except jquery's top author at 63% because of the one 8,654-line file) and often misses the share of a small author (10% to 38% for the fifth author of flask and vue core). It is a warning about how far a number can move, not a promise that the true value lies inside. For a share that decides something, run without `--sample`.
 
 ## What it counts
 
@@ -274,6 +297,7 @@ trust-pass report; the figures above are from one run per repository and will di
 --json               print JSON instead of a table
 --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
 --markdown           print a Markdown table
+--svg                print one shareable SVG card: line share, commit share, their difference, scope, ref, date and whether the run was sampled. No script or network; names are escaped
 --identities         list addresses that look like one person, with .mailmap lines
 --co-authors <mode>  none (default) or share: split each line and commit equally between the author
                      and the Co-authored-by trailer identities (.mailmap applies to them);
@@ -379,6 +403,14 @@ It comments the Markdown table for the whole repository at the merge commit and 
 `sample` (default 1, every file; a value above 1 is opt-in and the comment then starts with a SAMPLED line and the job log gets a warning annotation), `top`, `args` (more options) and `comment` are inputs. Pin the actions to commits in your own
 workflow. A pull request from a fork gets a read-only token, so there the table is only in the job summary. Nothing
 fails because of a share.
+
+## A card to share
+
+```sh
+npx surviving-lines --svg > surviving-lines.svg
+```
+
+`--svg` prints one SVG card from the same analysis as the table: for each of the top authors (`--top`, default 8) a solid bar for the share of surviving lines, an outlined bar for the share of commits, both numbers and their difference in points. The card states its scope, the ref, the date of the ref's commit, and whether the run was complete or SAMPLED (with the rate, the seed and each range). Its footer says that a share of surviving lines is not a quality or productivity score. The output is deterministic, uses no script, font file, image or network address, reads in light and dark mode (it follows `prefers-color-scheme`), and the two marks differ in shape as well as in colour. Every author name, address, path and ref is escaped, and characters XML forbids are dropped. `test/svg-card.test.mjs` checks that every number on the card equals the `--json` figure of the same run. It is a snapshot of one moment; it does not show shares over time (issue #18 is still open for that).
 
 ## Co-authors and AI assistants
 
@@ -577,6 +609,8 @@ Ada
   map  ada@laptop.example.org  1 commit, 8 lines
   because the same name, "Ada", on two addresses
   because the same address name, "ada", on two domains
+  effect on shares if one person: 40.0% + 26.7% = 66.7%
+  strength: strong
 
 Add these to a .mailmap file at the repository root:
 
@@ -590,6 +624,8 @@ The address lines above are the reliable ones. git matches a .mailmap name ignor
 case for ASCII letters only, so a name mapped by name alone must be written with its
 accents and its non-Latin letters exactly as the commit spells them.
 ```
+
+The `effect on shares` line is what counting the addresses as one person would do to the table (`identityHints.people[].members` in `--json` has the same figures per address). The same name on two *different companies'* domains (acme.com and globex.io, say) is only a weak suggestion since 0.5.0: two people can share a name, `--merge-identities` does not merge it, and it becomes strong only with a second kind of evidence, such as the full name being the other address's name. A personal mail provider, a GitHub noreply address and subdomains of one organisation stay strong.
 
 That is a real run on the synthetic fixture above; the addresses are the reserved example.com and example.org. Paste those
 lines into a `.mailmap` at the repository root and every one of these counts changes, along with

@@ -184,6 +184,7 @@ Measure who wrote the code that is still alive in a git ref.
   --json               print JSON instead of a table
   --csv                print CSV (author,mail,lines,line_share,commits,commit_share)
   --markdown           print a Markdown table
+  --svg                print one shareable SVG card: line share, commit share, their difference, scope, ref, date and whether the run was sampled. No script or network; names are escaped
   --identities         list addresses that look like one person, with .mailmap lines
   --merge-identities   count the suggested same-person addresses as one, in memory (nothing written); the table names each merge
   --allow-shallow      run in a shallow clone anyway; every output is marked "shallow clone"
@@ -216,7 +217,7 @@ groupBy?: string, files?: number, brief: boolean, timeBudget?: number, activeDay
  */
 export function parseArgs(argv) {
   /** @type {Options} */
-  const o = { ref: "HEAD", sample: 1, brief: false, activeDays: ACTIVE_DAYS_DEFAULT, orphans: false, without: [], ownedBy: [], attention: false, churn: false, at: [], seed: "", include: [], exclude: [], coAuthors: "none", aiBreakdown: false, suggestCodeowners: false, includeBots: false, noIgnoreRevs: false, ignoreRevs: [], detectReformat: true, keepReformat: false, reapplyCredit: true, busFactorThreshold: 50, copies: false, noCopies: false, keepGenerated: false, jobs: 4, top: 10, topGiven: false, sort: "lines", quiet: false, json: false, csv: false, markdown: false, identities: false, mergeIdentities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
+  const o = { ref: "HEAD", sample: 1, brief: false, activeDays: ACTIVE_DAYS_DEFAULT, orphans: false, without: [], ownedBy: [], attention: false, churn: false, at: [], seed: "", include: [], exclude: [], coAuthors: "none", aiBreakdown: false, suggestCodeowners: false, includeBots: false, noIgnoreRevs: false, ignoreRevs: [], detectReformat: true, keepReformat: false, reapplyCredit: true, busFactorThreshold: 50, copies: false, noCopies: false, keepGenerated: false, jobs: 4, top: 10, topGiven: false, sort: "lines", quiet: false, json: false, csv: false, markdown: false, svg: false, identities: false, mergeIdentities: false, allowShallow: false, cwd: process.cwd(), paths: [] };
   let refGiven = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -279,6 +280,7 @@ export function parseArgs(argv) {
     else if (a === "--json") o.json = true;
     else if (a === "--csv") o.csv = true;
     else if (a === "--markdown") o.markdown = true;
+    else if (a === "--svg") o.svg = true;
     else if (a === "--identities") o.identities = true;
     else if (a === "--merge-identities") o.mergeIdentities = true;
     else if (a === "--allow-shallow") o.allowShallow = true;
@@ -296,17 +298,17 @@ export function parseArgs(argv) {
   if (o.reviewers !== undefined && o.history !== undefined) throw new Error("--reviewers and --history are mutually exclusive: each prints its own view");
   const pathView = o.reviewers ?? o.history;
   const pathViewFlag = o.reviewers !== undefined ? "--reviewers" : "--history";
-  if (pathView !== undefined && (o.csv || o.markdown || o.identities || grouping || o.suggestCodeowners)) throw new Error(`${pathViewFlag} prints its own view; it can be combined with --json only`);
+  if (pathView !== undefined && (o.csv || o.markdown || o.svg || o.identities || grouping || o.suggestCodeowners)) throw new Error(`${pathViewFlag} prints its own view; it can be combined with --json only`);
   // The path joins the pathspecs, so blame, the commit counts and the unmatched-path error all see it. A pathspec after
   // -- would narrow the run to files that may not include the path, and the view would describe the wrong set.
   if (pathView !== undefined && o.paths.length) throw new Error(`${pathViewFlag} takes its path as its own value; it cannot be combined with pathspecs after --`);
   if (pathView !== undefined) o.paths = [pathView];
   if (o.files !== undefined) {
-    const clash = grouping ? "--group-by" : o.csv ? "--csv" : o.markdown ? "--markdown" : o.identities ? "--identities" : o.reviewers !== undefined ? "--reviewers" : o.history !== undefined ? "--history" : o.coAuthors === "share" ? "--co-authors share" : null;
+    const clash = grouping ? "--group-by" : o.csv ? "--csv" : o.markdown ? "--markdown" : o.svg ? "--svg" : o.identities ? "--identities" : o.reviewers !== undefined ? "--reviewers" : o.history !== undefined ? "--history" : o.coAuthors === "share" ? "--co-authors share" : null;
     if (clash) throw new Error(`--files prints its own view; it cannot be combined with ${clash}`);
   }
   if (o.without.length) {
-    const clash = grouping ? "--group-by" : o.csv ? "--csv" : o.markdown ? "--markdown" : o.identities ? "--identities" : o.reviewers !== undefined ? "--reviewers" : o.history !== undefined ? "--history" : o.files !== undefined ? "--files" : o.orphans ? "--orphans" : o.suggestCodeowners ? "--suggest-codeowners" : o.coAuthors === "share" ? "--co-authors share" : null;
+    const clash = grouping ? "--group-by" : o.csv ? "--csv" : o.markdown ? "--markdown" : o.svg ? "--svg" : o.identities ? "--identities" : o.reviewers !== undefined ? "--reviewers" : o.history !== undefined ? "--history" : o.files !== undefined ? "--files" : o.orphans ? "--orphans" : o.suggestCodeowners ? "--suggest-codeowners" : o.coAuthors === "share" ? "--co-authors share" : null;
     if (clash) throw new Error(`--without prints its own view; it can be combined with --json only, not with ${clash}`);
   }
   if (o.whyNot !== undefined) {
@@ -316,7 +318,7 @@ export function parseArgs(argv) {
   // The views added in round 13 (--for-diff, --owned-by, --why-not, --check-codeowners) print their own output. Each one is refused with every other view
   // and every output format; only --json may be combined with them.
   const newViews = /** @type {Record<string, boolean>} */ ({ "--for-diff": o.forDiff !== undefined, "--owned-by": o.ownedBy.length > 0, "--tree": o.tree !== undefined, "--attention": o.attention, "--written-since": o.writtenSince !== undefined, "--timeline": o.timeline !== undefined, "--coupled": o.coupled !== undefined, "--why-not": o.whyNot !== undefined, "--check-codeowners": o.checkCodeowners !== undefined });
-  const optionsSet = /** @type {Record<string, boolean>} */ ({ "--group-by": Boolean(grouping), "--csv": o.csv, "--markdown": o.markdown, "--identities": o.identities, "--files": o.files !== undefined, "--reviewers": o.reviewers !== undefined, "--history": o.history !== undefined, "--orphans": o.orphans, "--without": o.without.length > 0, "--brief": o.brief, "--suggest-codeowners": o.suggestCodeowners, "--co-authors share": o.coAuthors === "share", ...newViews });
+  const optionsSet = /** @type {Record<string, boolean>} */ ({ "--group-by": Boolean(grouping), "--csv": o.csv, "--markdown": o.markdown, "--svg": o.svg, "--identities": o.identities, "--files": o.files !== undefined, "--reviewers": o.reviewers !== undefined, "--history": o.history !== undefined, "--orphans": o.orphans, "--without": o.without.length > 0, "--brief": o.brief, "--suggest-codeowners": o.suggestCodeowners, "--co-authors share": o.coAuthors === "share", ...newViews });
   for (const view of Object.keys(newViews).filter((k) => newViews[k])) {
     const own = view === "--owned-by" ? { ...optionsSet, "--group-by": grouping?.kind === "ext", "--owned-by": false } : view === "--tree" ? { ...optionsSet, "--tree": false } : view === "--attention" ? { ...optionsSet, "--attention": false, "--sample": o.sample !== 1 } : view === "--coupled" ? { ...optionsSet, "--coupled": false, "--sample": o.sample !== 1 } : view === "--written-since" ? { ...optionsSet, "--written-since": false } : view === "--timeline" ? { ...optionsSet, "--timeline": false } : view === "--check-codeowners" ? { ...optionsSet, "--check-codeowners": false } : view === "--why-not" ? { ...optionsSet, "--group-by": Boolean(grouping), "--why-not": false } : view === "--for-diff" ? { ...optionsSet, "--for-diff": false, "--sample": o.sample !== 1, "--ref": refGiven } : optionsSet;
     const clash = Object.keys(own).find((k) => own[k]);
@@ -335,15 +337,15 @@ export function parseArgs(argv) {
   if ((o.minShared !== undefined || o.maxFilesPerCommit !== undefined) && !o.attention && o.coupled === undefined) throw new Error("--min-shared and --max-files-per-commit work with --attention or --coupled");
   if (o.timeBudget !== undefined && !o.brief) throw new Error("--time-budget works with --brief only");
   if (o.brief) {
-    const clash = grouping ? "--group-by" : o.csv ? "--csv" : o.markdown ? "--markdown" : o.identities ? "--identities" : o.reviewers !== undefined ? "--reviewers" : o.history !== undefined ? "--history" : o.files !== undefined ? "--files" : o.orphans ? "--orphans" : o.without.length ? "--without" : o.forDiff !== undefined ? "--for-diff" : o.ownedBy.length ? "--owned-by" : o.whyNot !== undefined ? "--why-not" : o.suggestCodeowners ? "--suggest-codeowners" : o.coAuthors === "share" ? "--co-authors share" : o.aiBreakdown ? "--ai-breakdown" : null;
+    const clash = grouping ? "--group-by" : o.csv ? "--csv" : o.markdown ? "--markdown" : o.svg ? "--svg" : o.identities ? "--identities" : o.reviewers !== undefined ? "--reviewers" : o.history !== undefined ? "--history" : o.files !== undefined ? "--files" : o.orphans ? "--orphans" : o.without.length ? "--without" : o.forDiff !== undefined ? "--for-diff" : o.ownedBy.length ? "--owned-by" : o.whyNot !== undefined ? "--why-not" : o.suggestCodeowners ? "--suggest-codeowners" : o.coAuthors === "share" ? "--co-authors share" : o.aiBreakdown ? "--ai-breakdown" : null;
     if (clash) throw new Error(`--brief prints its own view; it can be combined with --json only, not with ${clash}`);
   }
   if (o.orphans) {
-    const clash = grouping ? "--group-by" : o.csv ? "--csv" : o.markdown ? "--markdown" : o.identities ? "--identities" : o.history !== undefined ? "--history" : o.suggestCodeowners ? "--suggest-codeowners" : o.coAuthors === "share" ? "--co-authors share" : null;
+    const clash = grouping ? "--group-by" : o.csv ? "--csv" : o.markdown ? "--markdown" : o.svg ? "--svg" : o.identities ? "--identities" : o.history !== undefined ? "--history" : o.suggestCodeowners ? "--suggest-codeowners" : o.coAuthors === "share" ? "--co-authors share" : null;
     if (clash) throw new Error(`--orphans lists files under the table, --files or --reviewers; it cannot be combined with ${clash}`);
   }
   if (o.suggestCodeowners && grouping?.kind !== "dir") throw new Error("--suggest-codeowners needs --group-by dir or dir:<n>");
-  if (grouping && (o.csv || o.markdown || o.identities)) throw new Error("--group-by prints the table or --json; it cannot be combined with --csv, --markdown or --identities");
+  if (grouping && (o.csv || o.markdown || o.svg || o.identities)) throw new Error("--group-by prints the table or --json; it cannot be combined with --csv, --markdown, --svg or --identities");
   if (o.suggestCodeowners && o.json) throw new Error("--suggest-codeowners prints text; it cannot be combined with --json");
   if (grouping && o.coAuthors === "share") throw new Error("--co-authors share cannot be combined with --group-by yet");
   // The merge joins addresses that the table shows apart; --identities shows them apart on purpose, and a split
@@ -352,9 +354,10 @@ export function parseArgs(argv) {
   if (o.mergeIdentities && o.identities) throw new Error("--merge-identities cannot be combined with --identities, which lists the addresses as they are");
   if (o.mergeIdentities && o.coAuthors === "share") throw new Error("--merge-identities cannot be combined with --co-authors share");
   if (o.aiBreakdown && (o.csv || o.identities)) throw new Error("--ai-breakdown prints with the table, --markdown or --json; it cannot be combined with --csv or --identities");
-  const outputFormats = [o.json, o.csv, o.markdown, o.identities].filter(Boolean);
+  if (o.aiBreakdown && o.svg) throw new Error("--ai-breakdown cannot be combined with --svg: the card has no place for it");
+  const outputFormats = [o.json, o.csv, o.markdown, o.svg, o.identities].filter(Boolean);
   if (outputFormats.length > 1) {
-    throw new Error("--json, --csv, --markdown and --identities are mutually exclusive");
+    throw new Error("--json, --csv, --markdown, --svg and --identities are mutually exclusive");
   }
   return o;
 }
@@ -7366,6 +7369,109 @@ export function renderCsv(r) {
 }
 
 /**
+ * Text that is safe inside an SVG (XML 1.0) text node or attribute: the five markup characters become entities, the
+ * characters XML forbids are dropped, and a bidirectional override is removed so a name cannot reorder the card.
+ * @param {string} v
+ */
+export function xmlEscape(v) {
+  return String(v)
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: removing these characters is the purpose; XML 1.0 forbids them
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF￾￿]/gu, "")
+    .replace(/[‪-‮⁦-⁩]/g, "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}
+
+/** Cut a label to at most `max` code points, with an ellipsis. @param {string} v @param {number} max */
+function clip(v, max) {
+  const chars = [...String(v)];
+  return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : String(v);
+}
+
+/**
+ * One shareable card (--svg) from the same analysis the table prints. The numbers are the table's: line share, commit
+ * share, their difference in points and, for a sampled run, the range between sub-samples. Deterministic (no date of
+ * today, no randomness), no script, no external reference, light and dark through prefers-color-scheme, and two marks
+ * that differ in shape as well as colour (a solid bar for lines, an outlined bar for commits), so it reads without
+ * telling red from green. Every name and path is escaped.
+ * @param {Awaited<ReturnType<typeof analyse>>} r
+ * @param {number} top how many authors to draw
+ * @param {{ paths: string[], include: string[], exclude: string[] }} [scope]
+ */
+export function renderSvg(r, top, scope = { paths: [], include: [], exclude: [] }) {
+  const rows = r.authors.slice(0, top);
+  const W = 760;
+  const ROW = 50;
+  const HEAD = 138;
+  const rest = r.authors.length - rows.length;
+  const extra = rest > 0 ? 24 : 0;
+  const H = HEAD + rows.length * ROW + extra + 78;
+  const BAR_X = 214;
+  const BAR_W = 300;
+  const sampled = r.sample.every > 1;
+  const scopeParts = [...scope.paths, ...scope.include.map((g) => `include ${g}`), ...scope.exclude.map((g) => `exclude ${g}`)];
+  const scopeLine = scopeParts.length ? `scope: ${clip(scopeParts.join(", "), 90)}` : "scope: whole repository";
+  const asOf = r.activity?.asOf ? ` · as of ${r.activity.asOf}` : "";
+  const status = sampled
+    ? `SAMPLED: 1 file in ${r.sample.every}${r.sample.seed ? `, seed ${r.sample.seed}` : ""} · ${r.sample.filesSampled} of ${r.sample.filesTotal} files · estimates, not counts`
+    : `complete: every file was read (${r.sample.filesSampled} files)`;
+  const note = sampled ? (r.sample.spread ? `range = ${SPREAD_NOTE}` : "range: too few files for sub-samples") : null;
+  const nameCount = new Map();
+  for (const a of r.authors) nameCount.set(a.author, (nameCount.get(a.author) ?? 0) + 1);
+  const body = rows
+    .map((a, i) => {
+      const y = HEAD + i * ROW;
+      const label = clip((nameCount.get(a.author) ?? 0) > 1 ? `${a.author} <${a.mail}>` : a.author, 24);
+      const diff = (a.lineShare - a.commitShare) * 100;
+      const diffText = `${diff >= 0 ? "+" : "-"}${Math.abs(diff).toFixed(1)} points`;
+      const lw = Math.max(0, Math.min(1, a.lineShare)) * BAR_W;
+      const cw = Math.max(0, Math.min(1, a.commitShare)) * BAR_W;
+      const sp = a.spread;
+      const range = sampled && sp ? (sp.low === null || sp.high === null ? "range n/a" : `range ${pct(sp.low)} to ${pct(sp.high)}`) : "";
+      const few = sampled && sp && sp.files < FEW_FILES ? ` (${sp.files} file${sp.files === 1 ? "" : "s"})` : "";
+      return `<g class="row" data-mail="${xmlEscape(a.mail)}">
+<text x="24" y="${y + 14}" class="name">${xmlEscape(label)}</text>
+<rect x="${BAR_X}" y="${y}" width="${lw.toFixed(1)}" height="16" class="lines"/>
+<rect x="${BAR_X + 0.75}" y="${y + 22}" width="${Math.max(0, cw - 1.5).toFixed(1)}" height="9" class="commits"/>
+<text x="${BAR_X + BAR_W + 16}" y="${y + 13}" class="val">${pct(a.lineShare)} of lines${xmlEscape(few)}</text>
+<text x="${BAR_X + BAR_W + 16}" y="${y + 31}" class="val2">${pct(a.commitShare)} of commits</text>
+<text x="${W - 24}" y="${y + 13}" class="diff" text-anchor="end">${diffText}</text>${range ? `\n<text x="${W - 24}" y="${y + 31}" class="val2" text-anchor="end">${range}</text>` : ""}
+</g>`;
+    })
+    .join("\n");
+  const footY = HEAD + rows.length * ROW + extra;
+  const counts = `${r.sample.linesAttributed.toLocaleString("en-US")} lines attributed · ${r.commitWindow.commits.toLocaleString("en-US")} commits, merges excluded${r.shallow ? ` · ${SHALLOW_MARK}` : ""} · surviving-lines`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-labelledby="t d">
+<title id="t">Surviving lines and commits by author</title>
+<desc id="d">${xmlEscape(`${scopeLine}; ref ${r.ref}${asOf}; ${status}. Share of surviving lines is not a quality or productivity score.`)}</desc>
+<style>
+:root { --bg: #ffffff; --fg: #1b1f24; --muted: #57606a; --rule: #d0d7de; --lines: #1f5fbf; --commits: #a85a00; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0d1117; --fg: #e6edf3; --muted: #9aa4af; --rule: #30363d; --lines: #6ea8ff; --commits: #f0a860; } }
+text { font-family: system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; fill: var(--fg); font-size: 13px; }
+.h1 { font-size: 20px; font-weight: 650; } .sub { fill: var(--muted); font-size: 12.5px; } .status { font-size: 12.5px; font-weight: 600; }
+.name { font-size: 13.5px; } .val { font-size: 12.5px; font-weight: 600; } .val2 { fill: var(--muted); font-size: 12px; } .diff { font-size: 12.5px; font-weight: 600; }
+.lines, .legend-l { fill: var(--lines); } .commits, .legend-c { fill: none; stroke: var(--commits); stroke-width: 1.5; } .rule { stroke: var(--rule); stroke-width: 1; } .bg { fill: var(--bg); }
+</style>
+<rect class="bg" width="${W}" height="${H}" rx="10"/>
+<text x="24" y="38" class="h1">Surviving lines vs commits</text>
+<text x="24" y="60" class="sub">${xmlEscape(scopeLine)} · ref ${xmlEscape(clip(r.ref, 40))}${xmlEscape(asOf)}</text>
+<text x="24" y="80" class="status">${xmlEscape(status)}</text>${note ? `\n<text x="24" y="98" class="sub">${xmlEscape(note)}</text>` : ""}
+<rect x="24" y="108" width="14" height="9" class="legend-l"/><text x="44" y="117" class="sub">share of surviving lines</text>
+<rect x="214" y="108" width="14" height="9" class="legend-c"/><text x="234" y="117" class="sub">share of commits</text>
+<text x="${W - 24}" y="117" class="sub" text-anchor="end">difference</text>
+<line x1="24" y1="${HEAD - 12}" x2="${W - 24}" y2="${HEAD - 12}" class="rule"/>
+${body}${rest > 0 ? `\n<text x="24" y="${footY - 6}" class="sub">${rest} more author${rest === 1 ? "" : "s"} not drawn</text>` : ""}
+<line x1="24" y1="${footY + 8}" x2="${W - 24}" y2="${footY + 8}" class="rule"/>
+<text x="24" y="${footY + 30}" class="status">Share of surviving lines is not a quality or productivity score.</text>
+<text x="24" y="${footY + 50}" class="sub">${xmlEscape(counts)}</text>
+</svg>
+`;
+}
+
+/**
  * @param {Awaited<ReturnType<typeof analyse>>} r
  * @param {number} top
  */
@@ -8235,6 +8341,8 @@ async function main() {
       output = renderCsv(r);
     } else if (o.markdown) {
       output = renderMarkdown(r, o.top);
+    } else if (o.svg) {
+      output = renderSvg(r, o.topGiven ? o.top : 8, { paths: o.paths, include: o.include, exclude: o.exclude }).trimEnd();
     } else if (o.identities) {
       output = renderIdentities(linkIdentities(r.authors), sameAddressNames(await readAddressNames(o)), r.possibleSamePerson);
       const notes = scopeNotes(r, { identityHints: false });
@@ -8274,7 +8382,7 @@ async function main() {
     } else {
       output = renderTable(r, o.topGiven ? o.top : null);
     }
-    const ai = o.json ? null : renderAiBreakdown(r, r.sample, r.commitWindow.commits);
+    const ai = o.json || o.svg ? null : renderAiBreakdown(r, r.sample, r.commitWindow.commits);
     if (ai) output += `\n\n${ai}`;
     console.log(output);
     // Best effort: a failure while showing the hint must not turn a successful run into an error.

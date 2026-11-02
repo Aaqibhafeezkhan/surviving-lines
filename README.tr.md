@@ -18,10 +18,29 @@ Kayıt, bu deponun `bin/surviving-lines.js` dosyasının gerçek bir çalıştı
 
 git-fame 4.2.1, git-who v1.3 ve git-extras 7.5.0 aynı örnek depolarda çalıştırılarak ölçüldü; ayrıntılar [`docs/COMPARISON.md`](docs/COMPARISON.md) içinde, İngilizce tablo [README.md](README.md) içinde. Özet: satır ve commit sayıları, `.git-blame-ignore-revs`, `Co-authored-by:` payı ve uzantı başına toplamlar git-fame ile aynı çıkıyor. Yalnızca bu araçta olanlar: aynı tuzla aynı dosyaları seçen deterministik örnek, varsayılan olarak botları iki paydan çıkarma, adresi olmayan bir `Assisted-by:` satırında durmama, AI asistanı satırlarını ayrı sayma ve iki adresi olan bir kişi için `.mailmap` satırı önerme. Ayrıca bu araç, hiçbir ignore dosyasında adı geçmeyen biçimlendirme commit'lerini listeler ve sayılarını yanına yazar; git-fame'de böyle bir liste yoktur. git-fame ise tek çalıştırmada birden çok depo, svg ile yaml çıktısı ve blame tarafına da uygulanan `--since` penceresi konularında öndedir. Sık sorulanlar [`docs/FAQ.md`](docs/FAQ.md) içinde.
 
-Commit sayısı etkinliği ölçer. `git blame` ise sonraki her yeniden düzenlemeden sağ çıkanı
-ölçer. İki sayı sanıldığından daha sık ayrışır ve ilginç olan genellikle aradaki boşluktur:
-blame payı commit payının üstünde olan biri başkalarının kodunu değiştiren kodu yazmıştır;
-altında olan biri ise değiştirilen kodu yazmıştır.
+Commit sayısı etkinliği ölçer. `git blame` ise kodda hâlâ duran her satırı en son kimin değiştirdiğini gösterir.
+İki sayı sık sık ayrışır. Aradaki fark bir cevap değil, sorulacak bir sorudur: satır payı commit payının üstünde olan
+biri büyük bir modül, başkalarının kodunu yeniden yazan değişiklikler ya da büyük bir dosya eklemiş olabilir; altında olan
+biri sonradan değiştirilen kodu yazmış olabilir. Araç farkı ölçer, hangisinin olduğunu söyleyemez.
+
+Hayatta kalan satır bir kalite ya da verimlilik puanı değildir ve bir kişinin başkasından daha değerli olduğunu söylemez.
+
+Gerçek bir çalıştırma, pallets/flask deposunda `bfc8f98` commit'inde (`--top 5`, tablonun üstü; aynı ad iki adreste
+göründüğü için aracın bir adın yanına yazdığı adres burada çıkarıldı):
+
+```
+author                                            lines   share  with blank   share  commits   share
+----------------------------------------------------------------------------------------------------
+David Lord                                       14,225   54.0%      17,634   50.9%      827   22.5%
+Armin Ronacher                                    4,001   15.2%       6,279   18.1%      975   26.5%
+David Baumgold                                    2,110    8.0%       2,187    6.3%        4    0.1%
+Phil Jones                                        1,140    4.3%       1,451    4.2%       50    1.4%
+```
+
+David Baumgold'un 3.682 commit'ten 4'ü var ve hayatta kalan satırların %8,0'ini taşıyor; Armin Ronacher commit'lerin
+%26,5'ine ve satırların %15,2'sine sahip. İkisinin de birçok nedeni olabilir (büyük bir test dosyası, sonradan yeniden
+yazılan kod, daha eski bir geçmiş). Çalıştırma ayrıca bus factor'ü, kimin hâlâ aktif olduğunu ve neyi saymadığını
+(kilit dosyaları, üretilmiş ve vendor dosyaları, botlar, biçimlendirici commit'leri) yazar. Depoyu okur, hiçbir şey yazmaz.
 
 Tek dosya, bağımlılık yok, Node 22 ya da üstü, git 2.15 ya da üstü, `git`'in okuyabildiği her depo.
 

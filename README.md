@@ -45,11 +45,30 @@ git-fame is ahead on other rows of the same file: several repositories in one ru
   <a href="https://doi.org/10.5281/zenodo.22394614"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.22394614-111111?style=flat-square" alt="DOI"></a>
 </p>
 
-Commit counts measure activity. `git blame` measures what survived every later refactor.
-The two numbers disagree more often than people expect, and the gap is usually the
-interesting part: an author whose blame share is above their commit share wrote code
-that replaced other people's; one whose blame share is below wrote code that was
-replaced.
+Commit counts measure activity. `git blame` shows who last changed each line that is still in the code.
+The two numbers often disagree. The gap is a question to ask, not an answer: a person whose line share is above
+their commit share may have written a large module, rewritten other people's code, or added a big file;
+a person whose line share is below may have written code that was later replaced. The tool measures the gap and
+cannot tell you which of these happened.
+
+Surviving lines is not a quality or productivity score, and it does not say one person is worth more than another.
+
+A real run, `npx surviving-lines` on pallets/flask at `bfc8f98` (top of the table, `--top 5`; the tool also printed an address after one name because the same name appears on two addresses, left out here):
+
+```
+author                                            lines   share  with blank   share  commits   share
+----------------------------------------------------------------------------------------------------
+David Lord                                       14,225   54.0%      17,634   50.9%      827   22.5%
+Armin Ronacher                                    4,001   15.2%       6,279   18.1%      975   26.5%
+David Baumgold                                    2,110    8.0%       2,187    6.3%        4    0.1%
+Phil Jones                                        1,140    4.3%       1,451    4.2%       50    1.4%
+```
+
+David Baumgold has 4 of 3,682 commits and holds 8.0% of the surviving lines; Armin Ronacher has 26.5% of the
+commits and 15.2% of the lines. Both can have many causes (one large test file, code that was later rewritten, an
+older history). The run also prints the bus factor, who is still active, what it left out (lockfiles, generated
+and vendored files, bots, formatter commits) and `--help` lists the views. It reads the repository and writes
+nothing.
 
 One file, no dependencies, Node 22 or newer, git 2.15 or newer, any repository `git` can read.
 

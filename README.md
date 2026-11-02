@@ -170,6 +170,26 @@ run `--sample 1`; when you quote a sampled one, quote `sample.every`, `sample.se
 `filesSampled` and `linesAttributed` from `--json` next to it, which is what the first
 line of the table prints.
 
+## How much a sample can move
+
+The seed changes which files are read, so it changes the shares. This was measured on 2026-11-02 by re-drawing
+the sample with 1,000 seeds over the per-file results of a full run (`--files`) of three public repositories,
+for the share of the top author. The full-run share is the truth the samples are compared with.
+
+| repository (files) | top author, full run | `--sample 5`: 2.5% to 97.5% of seeds | min to max | seeds within the 95% interval of a design-based estimate |
+|---|---|---|---|---|
+| pallets/flask (225) | 53.6% | 40.4% to 66.4% | 31.0% to 74.9% | 90% |
+| vuejs/core (662) | 57.8% | 49.7% to 66.3% | 44.7% to 71.5% | 92% |
+| jquery/jquery (348) | 27.4% | 5.9% to 69.2% | 2.9% to 82.9% | 38% |
+
+So a 1-in-5 sample can be close (vuejs/core, about 8 points either way) or far off (jquery, where one 8,654-line file, `test/data/jquery-3.7.1.js`, is 17% of the counted lines and all of it is one author's). A textbook 95% interval, which treats the files
+as a random draw and estimates the error from the sampled files, covered the full-run share in 38% to 92% of the
+seeds, not 95%. For that reason the tool prints no confidence interval for a sampled run: the hash is
+deterministic and the files are not equal in size, so the interval would claim a precision the numbers do not
+have. A sampled run says so in the header line, in `--json` (`sample.every` above 1) and, for `--csv`, on stderr.
+Use `--sample` to look, run without it to quote. The measurement script and the three raw tables are in the
+trust-pass report; the figures above are from one run per repository and will differ on other repositories.
+
 ## What it counts
 
 - The `lines` column counts lines in the sampled files whose last change, as

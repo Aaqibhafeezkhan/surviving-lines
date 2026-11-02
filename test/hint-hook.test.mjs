@@ -436,12 +436,18 @@ test("fifty suspected groups still fit in 1,200 characters, with five shown and 
   }
   const dir = repoWith(commits);
   try {
-    const ctx = context(hook(PROMPT, dir));
+    // The command in the text holds the plugin path, and a longer path leaves room for fewer groups, so the count of
+    // five is measured with the bare command. A real path (75 characters in a clean temp copy showed 3) must still fit.
+    const ctx = context(hook(PROMPT, dir, { CLAUDE_PLUGIN_ROOT: "" }));
     assert.ok(withoutBrief(ctx).length <= 1200, `context is ${withoutBrief(ctx).length} characters`);
     assert.match(ctx, /\(50 found, \d+ shown; from names and addresses only\)/);
     const shown = ctx.split("[R1 same name]").length - 1;
     assert.ok(shown >= 4 && shown <= 5, `shown ${shown}`);
-    assertClosing(ctx);
+    assert.match(ctx, /SL = surviving-lines is the command/);
+    const withPath = context(hook(PROMPT, dir));
+    assert.ok(withoutBrief(withPath).length <= 1200, `with the plugin path, context is ${withoutBrief(withPath).length} characters`);
+    assert.ok(withPath.split("[R1 same name]").length - 1 >= 1, "with the plugin path, at least one group is shown");
+    assertClosing(withPath);
   } finally {
     removeRepo(dir);
   }

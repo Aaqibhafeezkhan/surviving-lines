@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1 (unreleased)
+
+- **Different GitHub accounts are no longer one person by login.** `111+alice@users.noreply.github.com` and `222+alice@users.noreply.github.com` carry two numeric ids, so a shared login is no evidence; `--merge-identities` used to fold the second account's lines into the first (fixture: 20 of 30 lines instead of 10). The pair is now at most a weak suggestion. The legacy form without an id still links to the id form.
+- **Prettier-style wrapping with trailing commas is a reformat.** A comma directly before `)`, `]` or `}` is layout in `js`, `jsx`, `mjs`, `cjs`, `ts`, `tsx`, `mts` and `cts` (not in Python, JSON or other languages; array holes stay real changes). Default behaviour change: a commit that only wraps lines and adds such commas now passes the content proof and is set aside like other reformats. Fixture, 15 files: before, the formatter held 750 of 750 lines; now the author holds 735. Use `--keep-reformat` for the old numbers.
+- **A sampled `--csv` run prints a `sampled run` line on stderr**, as a shallow run already did, so a saved file is not mistaken for a full count.
+- **A file name with a tab no longer stops the run** (`fatal: no such path tab in HEAD` for the whole repository).
+- **The prompt hint and the Stop hook fire less often.** Bare `owner`, `reviewer`, `git blame`, `inherited` and `who wrote` no longer trigger them; "owners of this repo", "suggest reviewers", "who wrote most of this codebase" and "who should be the default reviewer" do. Measured on pallets/flask: five general prompts used to inject 4,309 bytes after about 9 seconds each.
+- **Docs.** README "How much a sample can move" (measured seed spread on three repositories; no interval is printed because a design-based 95% interval covered the full-run share in 38% to 92% of seeds). The skill no longer lets an agent state a sampled share as exact. The first screen of both READMEs states that surviving lines is not a quality or productivity score and shows a real run.
+
 ## 0.4.0 (2026-10-24)
 
 **What you get in 0.4.0.** The tool is measured against other Claude Code plugins and plain Claude, and the Claude Code plugin changed to make the answers right (round 13 result: [`bench/head-to-head/results/round13-claude-sonnet-5-5/`](bench/head-to-head/results/round13-claude-sonnet-5-5/)).

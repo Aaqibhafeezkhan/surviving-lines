@@ -93,10 +93,12 @@ export function extractClaims(text) {
     // Blank out what looks like a number but is not a claim, keeping the length so positions stay valid.
     const blank = (/** @type {RegExp} */ re) => (line2 = line2.replace(re, (m) => " ".repeat(m.length)));
     let line2 = line;
+    // A decimal comma ("46,0%") is one number: read it as 46.0%, same length, so the 0 is not a claim of its own.
+    line2 = line2.replace(/(?<=\d),(?=\d{1,2}\s?(?:%|percent\b)(?!\d))/gi, ".");
     blank(/\b\d{4}-\d{2}-\d{2}\b/g);
     blank(/\bv?\d+\.\d+\.\d+(?:[-+][\w.]+)?\b/g);
     blank(/\b(?=[0-9a-f]*[a-f])(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b/g);
-    const re = /(?<![\w.#/\-–$])(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s?(%|percent\b|(?:(?:non-blank|blank|surviving|live)\s+)*(lines?|commits?|files?|authors?)\b)/gi;
+    const re = /(?<![\w.#/\-–$,])(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s?(%|percent\b|(?:(?:non-blank|blank|surviving|live)\s+)*(lines?|commits?|files?|authors?)\b)/gi;
     let m;
     while ((m = re.exec(line2)) !== null) {
       const before = line2.slice(0, m.index);

@@ -27,7 +27,7 @@ printf '%s\n' "$lc" | grep -Eq \
   -e 'bus factor' \
   -e 'who should review' \
   -e 'surviving lines' \
-  -e 'git blame' \
+  -e 'git blame (by|per|for|of) (author|person|people|developer|contributor)' \
   -e 'top (author|contributor)s?' \
   -e 'history of (this|the|a) (file|directory|folder|path)' \
   -e 'who shaped' \
@@ -41,15 +41,17 @@ printf '%s\n' "$lc" | grep -Eq \
   -e 'which (people|persons|authors|developers|engineers|contributors) (wrote|own|maintain|know|are|is|still|should)' \
   -e 'still (alive )?in (this|the) (repo|repository|code|codebase)' \
   -e 'losing (one|two|a few|a couple of)( or (one|two|three|a few))? (people|persons|developers|engineers|contributors)' \
-  -e '(^|[^a-z])owner(s|ship)?([^a-z]|$)' \
-  -e '(^|[^a-z])reviewers?([^a-z]|$)' \
+  -e '(^|[^a-z])owners? (of|for) (this|the|a) (repo|repository|code|codebase|directory|folder|module|package|path|file)' \
+  -e 'who (is|are) (the |its )?owners?' \
+  -e 'ownership (of|by|share)' \
+  -e '(suggest|suggested|recommend|best|likely) reviewers?' \
+  -e 'reviewers? (for|of) (this|the|a) (file|change|diff|path|directory|folder|pr|pull request)' \
   -e 'who (should|can|do|would) (i|we) (ask|talk|contact|go|turn)' \
   -e 'one[- ]person (project|library|package)' \
-  -e '(inherited|took over|taking over|taken over|became (the )?maintainer)' \
   -e 'who is (really )?behind' \
   -e 'how much of (the|that|this) (code|library|package|crate|repo)' \
   -e 'really (theirs|his|hers|written by)' \
-  -e 'who (really )?(wrote|built)' \
+  -e 'who (really )?(wrote|built) (most of )?(this|the) (repo|repository|codebase|project|library|package|module|code|directory|folder)' \
   -e 'authorship' \
   -e 'truck factor' \
   -e '(look|looks|seem|seems) like the (author|owner|maintainer)' \

@@ -563,6 +563,91 @@ export function inSample(path, n, seed) {
   return n === 1 || fnv1a(seed + "\u0000" + path) % n === 0;
 }
 
+/** The sampled files are split into this many sub-samples by a second hash, to see how far a share moves between them. */
+export const SPREAD_SUB_SAMPLES = 4;
+/** A sub-sample needs at least this many files, or its shares are one file each. */
+export const SPREAD_MIN_FILES_PER_SUB_SAMPLE = 2;
+/** A share that rests on fewer sampled files than this is called out as resting on few files. */
+export const FEW_FILES = 5;
+export const SPREAD_NOTE = "spread between sub-samples, not a confidence interval";
+
+/**
+ * The sub-sample a path belongs to. The low bits of FNV-1a are a parity of the bytes, so `% K` of a second FNV-1a would
+ * be tied to the first one that drew the sample (with `--sample 2` half of the sub-samples came out empty); a murmur3
+ * finaliser mixes the high bits down first.
+ * @param {string} path
+ * @param {number} k
+ */
+function subSampleOf(path, k) {
+  let h = fnv1a("spread\u0000" + path);
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b) >>> 0;
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35) >>> 0;
+  h ^= h >>> 16;
+  return (h >>> 0) % k;
+}
+
+/**
+ * How far each author's share moves between sub-samples of the files a sampled run read. The sampled files are dealt
+ * into four sub-samples by a second hash (not the one that drew the sample), each author's share is taken inside each
+ * sub-sample, and the range is the lowest and highest of those four shares. This is a spread, not a confidence
+ * interval: the sub-samples are a quarter the size of the run, so the range is wider than the run's own error would
+ * be, and one huge file can still put a share outside it. Null when there are too few files for four sub-samples.
+ * @param {Map<string, Map<string, { lines: number }>>} perFile the lines per author address of each sampled file
+ * @param {(mail: string) => string} keyOf the row an address belongs to (its merged identity, or itself)
+ * @param {Set<string>} excluded addresses left out of every total, as the table leaves them out (bots)
+ */
+export function sampleSpread(perFile, keyOf, excluded) {
+  const K = SPREAD_SUB_SAMPLES;
+  if (perFile.size < K * SPREAD_MIN_FILES_PER_SUB_SAMPLE) return null;
+  /** @type {Map<string, Map<string, { lines: number }>>[]} */
+  const parts = Array.from({ length: K }, () => new Map());
+  for (const [path, counts] of perFile) parts[subSampleOf(path, K)].set(path, counts);
+  if (parts.some((p) => p.size < SPREAD_MIN_FILES_PER_SUB_SAMPLE)) return null;
+  /** @type {Map<string, number>[]} */
+  const tallies = [];
+  const totals = [];
+  for (const part of parts) {
+    /** @type {Map<string, number>} */
+    const t = new Map();
+    let total = 0;
+    for (const counts of part.values()) {
+      for (const [mail, { lines }] of counts) {
+        if (excluded.has(mail)) continue;
+        total += lines;
+        t.set(keyOf(mail), (t.get(keyOf(mail)) ?? 0) + lines);
+      }
+    }
+    tallies.push(t);
+    totals.push(total);
+  }
+  /** @type {Map<string, { low: number, high: number }>} */
+  const authors = new Map();
+  const keys = new Set(tallies.flatMap((t) => [...t.keys()]));
+  for (const key of keys) {
+    const shares = tallies.map((t, i) => (totals[i] ? (t.get(key) ?? 0) / totals[i] : 0));
+    authors.set(key, { low: Math.min(...shares), high: Math.max(...shares) });
+  }
+  return { method: `${K} sub-samples by a second hash of the path`, note: SPREAD_NOTE, subSamples: K, filesPerSubSample: parts.map((p) => p.size), authors };
+}
+
+/**
+ * The sampled files each author has surviving lines in, by row key.
+ * @param {Map<string, Map<string, { lines: number }>>} perFile
+ * @param {(mail: string) => string} keyOf
+ */
+export function filesPerAuthor(perFile, keyOf) {
+  /** @type {Map<string, number>} */
+  const out = new Map();
+  for (const counts of perFile.values()) {
+    const seen = new Set();
+    for (const [mail, { lines }] of counts) if (lines > 0) seen.add(keyOf(mail));
+    for (const k of seen) out.set(k, (out.get(k) ?? 0) + 1);
+  }
+  return out;
+}
+
 /**
  * Minimal glob: ** matches across directories, * within one segment, ? one char.
  * A pattern without a slash matches against the basename as well as the full path.
@@ -5987,6 +6072,14 @@ export async function analyse(o) {
     sortRows(rows);
   }
 
+  // A sampled run: how far each share moves between sub-samples of the files it read (null for a full run, and for
+  // --co-authors share, whose split is not a line count per file).
+  const rowKey = (/** @type {string} */ mail) => (o.mergeIdentities ? canonicalOf.get(mail)?.mail ?? mail : mail);
+  const botMails = new Set(o.includeBots ? [] : botRows.map((b) => b.mail));
+  const spreadResult = o.sample > 1 && o.coAuthors !== "share" ? sampleSpread(main.perFile, rowKey, botMails) : null;
+  const authorFiles = o.sample > 1 ? filesPerAuthor(main.perFile, rowKey) : new Map();
+  const spreadFor = (/** @type {string} */ mail) => ({ low: spreadResult ? spreadResult.authors.get(mail)?.low ?? 0 : null, high: spreadResult ? spreadResult.authors.get(mail)?.high ?? 0 : null, files: authorFiles.get(mail) ?? 0 });
+  const spreadMeta = o.sample > 1 ? (spreadResult ? { method: spreadResult.method, note: spreadResult.note, subSamples: spreadResult.subSamples, filesPerSubSample: spreadResult.filesPerSubSample } : null) : null;
   // The bus factor reads lines, most first. The rows may be sorted by commits or by the gap, so it takes its own copy.
   const byLines = [...rows].sort((x, y) => y.lines - x.lines || x.mail.localeCompare(y.mail));
   const runBusFactor = busFactor(byLines, o.busFactorThreshold);
@@ -6115,7 +6208,7 @@ export async function analyse(o) {
     ref: o.ref,
     sort: o.sort,
     shallow,
-    sample: { every: o.sample, seed: o.seed, filesTotal: all.length, filesSampled: sampled.length, linesInRef: all.reduce((s, f) => s + f.lines, 0), linesWithBlank: all.reduce((s, f) => s + (f.withBlank ?? f.lines), 0), linesAttributed: attributed },
+    sample: { every: o.sample, seed: o.seed, filesTotal: all.length, filesSampled: sampled.length, linesInRef: all.reduce((s, f) => s + f.lines, 0), linesWithBlank: all.reduce((s, f) => s + (f.withBlank ?? f.lines), 0), linesAttributed: attributed, complete: o.sample === 1, spread: spreadMeta },
     commitWindow: { since: o.since ?? null, until: o.until ?? null, commits, mergesExcluded: true },
     coAuthors: o.coAuthors,
     aiAssisted,
@@ -6158,7 +6251,7 @@ export async function analyse(o) {
     reappliedCredit: reapplied,
     reviewers,
     history,
-    authors: rows,
+    authors: o.sample === 1 ? rows : rows.map((a) => ({ ...a, spread: spreadFor(a.mail) })),
   };
   if (!o.brief) return result;
   // The brief reads the result above and three more facts: the commit id, the single-owner files and the bus factor of
@@ -6857,6 +6950,38 @@ export function topAuthorLine(r) {
   return `top: ${rowLabel(top, nameCount)} holds ${n(top.lines)} non-blank lines (${pct(top.lineShare)}), ${n(withBlank)} counting blank lines (${pct(top.shareWithBlank ?? top.lineShare)})`;
 }
 
+/**
+ * The range cell of a sampled run: the lowest and highest line share between the sub-samples, or "n/a" when the run had
+ * too few files to split. Empty for a full run.
+ * @param {{ spread?: { low: number | null, high: number | null, files: number } }} a
+ */
+function spreadText(a) {
+  const s = a.spread;
+  if (!s) return "";
+  return s.low === null || s.high === null ? "n/a" : `${pct(s.low)} to ${pct(s.high)}`;
+}
+
+/** True when the rows carry the per-author ranges of a sampled run. @param {{ authors: { spread?: unknown }[] }} r */
+function hasSpread(r) {
+  return r.authors.some((a) => a.spread !== undefined);
+}
+
+/**
+ * The lines under a sampled run's table: that it is a sample, what the range is and is not, and the shown authors whose
+ * share rests on very few files. Empty for a full run.
+ * @param {Pick<Awaited<ReturnType<typeof analyse>>, "sample" | "authors">} r
+ * @param {{ spread?: { files: number }, author: string }[]} shown the rows that are printed
+ */
+function spreadNotes(r, shown) {
+  if (!hasSpread(r)) return [];
+  const n = (/** @type {number} */ x) => x.toLocaleString("en-US");
+  const out = [`sampled run: ${n(r.sample.filesSampled)} of ${n(r.sample.filesTotal)} files were read, so every number here is an estimate of the repository, not its count. --sample 1 reads every file.`];
+  out.push(r.sample.spread ? `range: ${SPREAD_NOTE} (${r.sample.spread.subSamples} sub-samples of the sampled files). It can miss the true share, more often for small shares and where a few large files hold most of the lines.` : `range: n/a, only ${n(r.sample.filesSampled)} files were read, too few to split into sub-samples. Treat every share as rough.`);
+  const few = shown.filter((a) => a.spread && a.spread.files < FEW_FILES);
+  if (few.length) out.push(`${few.length} author${few.length === 1 ? "" : "s"} shown (marked *) ${few.length === 1 ? "rests" : "rest"} on fewer than ${FEW_FILES} sampled files: ${few.length === 1 ? "that share" : "those shares"} can change a lot with another seed.`);
+  return out;
+}
+
 /** The default table (R9-4): every author with at least this share of the lines, within MIN_ROWS and MAX_ROWS rows. */
 const DEFAULT_ROW_SHARE = 0.01;
 const DEFAULT_MIN_ROWS = 10;
@@ -6882,11 +7007,14 @@ export function renderTable(r, top) {
   const nameW = Math.max(6, ...rows.map((a) => displayWidth(label(a))));
   const lastOf = (/** @type {{ mail: string }} */ a) => (r.lastCommits?.[a.mail] ?? "").padEnd(10);
   const both = hasBlankBasis(r.authors);
-  const head = `${padEndDisplay("author", nameW)}  ${"lines".padStart(9)}  ${"share".padStart(6)}${both ? `  ${"with blank".padStart(10)}  ${"share".padStart(6)}` : ""}  ${"commits".padStart(7)}  ${"share".padStart(6)}${byDefault ? "  last commit" : ""}`;
+  const ranged = hasSpread(r);
+  const rangeW = ranged ? Math.max(5, ...rows.map((a) => spreadText(a).length)) : 0;
+  const head = `${padEndDisplay("author", nameW)}  ${"lines".padStart(9)}  ${"share".padStart(6)}${ranged ? `  ${"range".padStart(rangeW)}  ${"files".padStart(5)}` : ""}${both ? `  ${"with blank".padStart(10)}  ${"share".padStart(6)}` : ""}  ${"commits".padStart(7)}  ${"share".padStart(6)}${byDefault ? "  last commit" : ""}`;
   lines.push(head);
   lines.push("-".repeat(displayWidth(head)));
   for (const a of rows) {
-    lines.push(`${padEndDisplay(label(a), nameW)}  ${a.lines.toLocaleString("en-US").padStart(9)}  ${pct(a.lineShare).padStart(6)}${both ? `  ${(a.linesWithBlank ?? a.lines).toLocaleString("en-US").padStart(10)}  ${pct(a.shareWithBlank ?? a.lineShare).padStart(6)}` : ""}  ${a.commits.toLocaleString("en-US").padStart(7)}  ${pct(a.commitShare).padStart(6)}${byDefault ? `  ${lastOf(a)}`.trimEnd() : ""}`);
+    const rangeCells = ranged ? `  ${spreadText(a).padStart(rangeW)}  ${`${a.spread?.files ?? 0}${a.spread && a.spread.files < FEW_FILES ? "*" : ""}`.padStart(5)}` : "";
+    lines.push(`${padEndDisplay(label(a), nameW)}  ${a.lines.toLocaleString("en-US").padStart(9)}  ${pct(a.lineShare).padStart(6)}${rangeCells}${both ? `  ${(a.linesWithBlank ?? a.lines).toLocaleString("en-US").padStart(10)}  ${pct(a.shareWithBlank ?? a.lineShare).padStart(6)}` : ""}  ${a.commits.toLocaleString("en-US").padStart(7)}  ${pct(a.commitShare).padStart(6)}${byDefault ? `  ${lastOf(a)}`.trimEnd() : ""}`);
   }
   const tail = r.authors.slice(shown);
   if (tail.length && byDefault) {
@@ -6899,6 +7027,8 @@ export function renderTable(r, top) {
   }
   const topLine = topAuthorLine(r);
   if (topLine) lines.push(topLine);
+  const sampleNotes = spreadNotes(r, rows);
+  if (sampleNotes.length) lines.push("", ...sampleNotes);
   const activeLine = activityLine(r.activity);
   if (activeLine) lines.push(activeLine);
   const bus = busFactorBlock(r.busFactor, r.authors);
@@ -7228,8 +7358,10 @@ export function renderCodeowners(r) {
 export function renderCsv(r) {
   const q = (/** @type {string} */ v) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
   const both = hasBlankBasis(r.authors);
-  const rows = [`author,mail,lines,line_share,commits,commit_share${both ? ",lines_with_blank,line_share_with_blank" : ""}`];
-  for (const a of r.authors) rows.push([q(a.author), q(a.mail), a.lines, a.lineShare.toFixed(4), a.commits, a.commitShare.toFixed(4), ...(both ? [a.linesWithBlank ?? a.lines, (a.shareWithBlank ?? a.lineShare).toFixed(4)] : [])].join(","));
+  const ranged = hasSpread(r);
+  const rows = [`author,mail,lines,line_share,commits,commit_share${both ? ",lines_with_blank,line_share_with_blank" : ""}${ranged ? ",line_share_low,line_share_high,files" : ""}`];
+  const cell = (/** @type {number | null | undefined} */ v) => (v === null || v === undefined ? "" : v.toFixed(4));
+  for (const a of r.authors) rows.push([q(a.author), q(a.mail), a.lines, a.lineShare.toFixed(4), a.commits, a.commitShare.toFixed(4), ...(both ? [a.linesWithBlank ?? a.lines, (a.shareWithBlank ?? a.lineShare).toFixed(4)] : []), ...(ranged ? [cell(a.spread?.low), cell(a.spread?.high), a.spread?.files ?? 0] : [])].join(","));
   return rows.join("\n");
 }
 
@@ -7258,12 +7390,13 @@ export function renderMarkdown(r, top) {
   const rows = r.authors.slice(0, top);
 
   const both = hasBlankBasis(r.authors);
-  lines.push(`| author | lines | line share |${both ? " with blank | share with blank |" : ""} commits | commit share |`);
-  lines.push(`| --- | ---: | ---: |${both ? " ---: | ---: |" : ""} ---: | ---: |`);
+  const ranged = hasSpread(r);
+  lines.push(`| author | lines | line share |${ranged ? " line share range | sampled files |" : ""}${both ? " with blank | share with blank |" : ""} commits | commit share |`);
+  lines.push(`| --- | ---: | ---: |${ranged ? " ---: | ---: |" : ""}${both ? " ---: | ---: |" : ""} ---: | ---: |`);
 
   for (const a of rows) {
     lines.push(
-      `| ${label(a)} | ${a.lines.toLocaleString("en-US")} | ${pct(a.lineShare)} |${both ? ` ${(a.linesWithBlank ?? a.lines).toLocaleString("en-US")} | ${pct(a.shareWithBlank ?? a.lineShare)} |` : ""} ${a.commits.toLocaleString("en-US")} | ${pct(a.commitShare)} |`
+      `| ${label(a)} | ${a.lines.toLocaleString("en-US")} | ${pct(a.lineShare)} |${ranged ? ` ${spreadText(a)} | ${a.spread?.files ?? 0}${a.spread && a.spread.files < FEW_FILES ? "*" : ""} |` : ""}${both ? ` ${(a.linesWithBlank ?? a.lines).toLocaleString("en-US")} | ${pct(a.shareWithBlank ?? a.lineShare)} |` : ""} ${a.commits.toLocaleString("en-US")} | ${pct(a.commitShare)} |`
     );
   }
 
@@ -7276,6 +7409,7 @@ export function renderMarkdown(r, top) {
 
   // A blank line first: a plain line directly under a Markdown table would be read as another row.
   // Markdown joins neighbouring lines into one paragraph, so each of these gets a blank line around it.
+  for (const note of spreadNotes(r, rows)) lines.push("", `${note}`);
   const bus = busFactorBlock(r.busFactor, r.authors);
   if (bus.length) lines.push("", bus[0], "", bus[1]);
   // A note block is plain lines in the table; here every line of it is its own paragraph.
@@ -8062,6 +8196,7 @@ async function main() {
       if (r.shallow) console.error(`surviving-lines: ${SHALLOW_MARK}`);
       // A sampled count is not the repository's count, and a saved CSV has no first line to say so.
       if (r.sample.every > 1) console.error(`surviving-lines: ${sampledMark(r.sample)}`);
+      if (r.sample.every > 1) console.error(`surviving-lines: line_share_low and line_share_high are the ${SPREAD_NOTE}; files is how many sampled files the author has lines in${r.sample.spread ? "" : " (too few files for a range: the two columns are empty)"}.`);
       // The table's blocks cannot go in CSV, so the same scope notes go to stderr, where the reader still sees them.
       for (const note of scopeNotes(r)) if (note) console.error(`surviving-lines: ${note}`);
       if (r.blame.copyDetection.reason && r.blame.copyDetection.reason !== "--no-copies") console.error(`surviving-lines: copy detection off: ${r.blame.copyDetection.reason}`);

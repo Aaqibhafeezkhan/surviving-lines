@@ -31,7 +31,20 @@
         "filesSampled": { "type": "integer", "minimum": 0 },
         "linesInRef": { "type": "integer", "minimum": 0 },
         "linesWithBlank": { "type": "integer", "minimum": 0, "description": "The same size counting blank lines (linesInRef leaves them out)." },
-        "linesAttributed": { "type": "number", "minimum": 0, "description": "An integer unless --co-authors share is used." }
+        "linesAttributed": { "type": "number", "minimum": 0, "description": "An integer unless --co-authors share is used." },
+        "complete": { "type": "boolean", "description": "True when every file was read (--sample 1). False means every count and share is of a sample of the files, not of the repository." },
+        "spread": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["method", "note", "subSamples", "filesPerSubSample"],
+          "description": "An object only in a sampled run with enough files to split: how the per-author ranges (authors[].spread) were measured. Null otherwise. The ranges are a spread between sub-samples, not a confidence interval.",
+          "properties": {
+            "method": { "type": "string" },
+            "note": { "type": "string" },
+            "subSamples": { "type": "integer", "minimum": 2 },
+            "filesPerSubSample": { "type": "array", "items": { "type": "integer", "minimum": 0 } }
+          }
+        }
       }
     },
     "commitWindow": {
@@ -1921,7 +1934,18 @@
           "commitShare": { "type": "number", "minimum": 0, "maximum": 1 },
           "linesWithBlank": { "type": "number", "minimum": 0, "description": "The lines with blank lines counted. Equal to lines when no blank line was dropped, and under --co-authors share." },
           "shareWithBlank": { "type": "number", "minimum": 0, "maximum": 1, "description": "The share of linesWithBlank over the total with blank lines." },
-          "addresses": { "type": "integer", "minimum": 2, "description": "Present only under --merge-identities, on a row that holds several addresses of one person in this list: how many." }
+          "addresses": { "type": "integer", "minimum": 2, "description": "Present only under --merge-identities, on a row that holds several addresses of one person in this list: how many." },
+          "spread": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["low", "high", "files"],
+            "description": "Only in a sampled run. low and high are the lowest and highest line share between the sub-samples (null when there were too few files to split); files is how many sampled files the author has surviving lines in. A spread between sub-samples, not a confidence interval.",
+            "properties": {
+              "low": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+              "high": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+              "files": { "type": "integer", "minimum": 0 }
+            }
+          }
         }
       }
     }

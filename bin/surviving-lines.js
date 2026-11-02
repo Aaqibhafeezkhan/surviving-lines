@@ -7504,6 +7504,29 @@ export function fullNameIsAddressName(name, local) {
   return address.length >= 4 && joined === address;
 }
 
+/** Mail providers whose address says nothing about an employer: the same name there and on a company address is the usual one person. */
+const PERSONAL_MAIL_DOMAINS = new Set(["gmail.com", "googlemail.com", "outlook.com", "hotmail.com", "live.com", "msn.com", "yahoo.com", "ymail.com", "icloud.com", "me.com", "mac.com", "aol.com", "proton.me", "protonmail.com", "pm.me", "hey.com", "fastmail.com", "fastmail.fm", "mail.com", "qq.com", "163.com", "126.com", "sina.com", "mail.ru", "bk.ru", "inbox.ru", "list.ru", "rambler.ru", "zoho.com", "tutanota.com", "tuta.io", "duck.com", "web.de", "t-online.de", "orange.fr", "free.fr", "wanadoo.fr", "libero.it", "naver.com", "daum.net", "hanmail.net", "seznam.cz", "wp.pl", "o2.pl", "interia.pl", "onet.pl"]);
+
+/**
+ * The registrable domain of an address that belongs to an organisation, or null for a personal mail provider, a GitHub
+ * noreply address or a host that is no real domain. "mail.acme.com" and "acme.com" are one organisation ("acme.com");
+ * "acme.co.uk" keeps three labels. A short built-in list, not the public suffix list: it errs towards calling two hosts
+ * different organisations, which only makes a suggestion weak.
+ * @param {string} mail
+ */
+export function organisationDomain(mail) {
+  const domain = (mail.split("@")[1] ?? "").toLowerCase();
+  if (!domain || !domain.includes(".") || /(^|\.)noreply\.github\.com$/.test(domain) || /\.(?:local|localdomain|lan|internal|invalid|test|example)$/.test(domain)) return null;
+  if (/^(?:yahoo|hotmail|outlook|live|gmx|yandex)\./.test(domain)) return null;
+  // The reserved documentation domains (RFC 2606) belong to no organisation; examples and fixtures use them.
+  if (/(^|\.)example\.(?:com|org|net)$/.test(domain)) return null;
+  const labels = domain.split(".");
+  const sld = new Set(["co", "com", "org", "net", "ac", "gov", "edu", "or", "ne", "go"]);
+  const take = labels.length >= 3 && labels[labels.length - 1].length === 2 && sld.has(labels[labels.length - 2]) ? 3 : 2;
+  const registrable = labels.slice(-take).join(".");
+  return PERSONAL_MAIL_DOMAINS.has(registrable) ? null : registrable;
+}
+
 /**
  * Group addresses that look like one person, with the signal behind each grouping. This reads
  * only what is already in the repository's own history, proposes and never writes, and cannot
@@ -7514,9 +7537,9 @@ export function linkIdentities(authors) {
   const people = authors.filter((a) => !isBotAddress(a.mail));
   /** @type {Map<number, Set<number>>} */
   const edges = new Map();
-  /** @type {Map<string, { kind: "name" | "login" | "stem", text: string }[]>} */
+  /** @type {Map<string, { kind: "name" | "login" | "stem" | "orgname", text: string }[]>} */
   const why = new Map();
-  const link = (/** @type {number} */ i, /** @type {number} */ j, /** @type {"name" | "login" | "stem"} */ kind, /** @type {string} */ reason) => {
+  const link = (/** @type {number} */ i, /** @type {number} */ j, /** @type {"name" | "login" | "stem" | "orgname"} */ kind, /** @type {string} */ reason) => {
     if (!edges.has(i)) edges.set(i, new Set());
     if (!edges.has(j)) edges.set(j, new Set());
     edges.get(i)?.add(j);
@@ -7532,7 +7555,11 @@ export function linkIdentities(authors) {
       const a = people[i];
       const b = people[j];
       if (a.author && b.author && foldIdentity(a.author) === foldIdentity(b.author)) {
-        link(i, j, "name", `the same name, "${a.author}", on two addresses`);
+        // The same name on two different organisations' domains is as often two people with a common name as one person
+        // who changed employer, so it is the weak kind of evidence (it counts like the same address name on two domains).
+        const [orgA, orgB] = [organisationDomain(a.mail), organisationDomain(b.mail)];
+        if (orgA && orgB && orgA !== orgB) link(i, j, "orgname", `the same name, "${a.author}", on two company domains (${[orgA, orgB].sort().join(", ")}); two people can share a name`);
+        else link(i, j, "name", `the same name, "${a.author}", on two addresses`);
       }
       const [la, lb] = [githubLogin(a.mail), githubLogin(b.mail)];
       const localOf = (/** @type {string} */ m) => m.split("@")[0].replace(/^\d+\+/, "");
@@ -7584,8 +7611,9 @@ export function linkIdentities(authors) {
   const evidenceOf = (/** @type {number} */ i, /** @type {number} */ j) => why.get(pairKey(i, j)) ?? [];
   /** A name or login link is conclusive; an address name on two domains is weak alone and strong with another kind of evidence. */
   const strongPair = (/** @type {number} */ i, /** @type {number} */ j) => {
-    const list = evidenceOf(i, j);
-    return list.some((e) => e.kind !== "stem") || new Set(list.map((e) => e.kind)).size >= 2;
+    // A name shared across two companies counts as the same weak kind as a shared address name.
+    const kinds = new Set(evidenceOf(i, j).map((e) => (e.kind === "orgname" ? "stem" : e.kind)));
+    return [...kinds].some((k) => k !== "stem") || kinds.size >= 2;
   };
   const textsOf = (/** @type {number[]} */ idx, /** @type {(i: number, j: number) => boolean} */ pairs) => {
     /** @type {string[]} */
@@ -7693,6 +7721,8 @@ export function identityHintSummary(groups) {
       lines: g.members.reduce((sum, m) => sum + m.lines, 0),
       lineShare: g.members.reduce((sum, m) => sum + m.lineShare, 0),
       strength: g.strength,
+      // What merging would do to each address's figure: the lines and share of every address, to add up.
+      members: [...g.members].sort((x, y) => x.mail.localeCompare(y.mail)).map((m) => ({ mail: m.mail, lines: m.lines, lineShare: m.lineShare })),
       // Members linked to the group only weakly (R8-5): not in the figure above, each with its own lines.
       weakAdditions: g.weakAdditions.map((w) => ({ name: w.member.author, mail: w.member.mail, lines: w.member.lines, lineShare: w.member.lineShare })),
     })),
@@ -8066,6 +8096,8 @@ export function renderIdentities(groups, sameAddress = [], possible = { count: 0
       lines.push(`  ${mark} ${m.mail}  ${m.commits} commit${m.commits === 1 ? "" : "s"}, ${m.lines.toLocaleString("en-US")} line${m.lines === 1 ? "" : "s"}${blankNote(m)}`);
     }
     for (const r of g.reasons) lines.push(`  because ${r}`);
+    const shares = g.members.map((m) => m.lineShare ?? 0);
+    lines.push(`  effect on shares if one person: ${[...g.members].sort((x, y) => y.lines - x.lines || x.mail.localeCompare(y.mail)).map((m) => pct(m.lineShare ?? 0)).join(" + ")} = ${pct(shares.reduce((x, y) => x + y, 0))}`);
     lines.push(`  strength: ${g.strength}${g.strength === "strong" ? "" : " (a guess; not merged by --merge-identities, confirm before writing a .mailmap line)"}`);
     for (const w of g.weakAdditions ?? []) lines.push(`  weak addition, not in the group above and not merged by --merge-identities: ${w.member.mail}  ${w.member.commits} commit${w.member.commits === 1 ? "" : "s"}, ${w.member.lines.toLocaleString("en-US")} line${w.member.lines === 1 ? "" : "s"}${blankNote(w.member)}, because ${w.reasons.join("; ")}`);
     lines.push("");

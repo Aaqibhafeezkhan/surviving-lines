@@ -498,6 +498,20 @@
               "lines": { "type": "integer", "minimum": 0, "description": "The lines of the addresses added up: the figure the person would have if they were one." },
               "lineShare": { "type": "number", "minimum": 0, "maximum": 1, "description": "lines over the attributed lines, the same basis as the table's lineShare." },
               "strength": { "type": "string", "enum": ["strong", "weak"], "description": "Decided per pair: strong when the addresses are linked by a same name or a GitHub login, or by two kinds of evidence; weak when only the same address name on two domains links them. --merge-identities merges strong people only." },
+              "members": {
+                "type": "array",
+                "description": "The effect of merging on the shares: every address of the group with its own lines and line share, sorted by address. lines and lineShare above are their sums.",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["mail", "lines", "lineShare"],
+                  "properties": {
+                    "mail": { "type": "string" },
+                    "lines": { "type": "number", "minimum": 0 },
+                    "lineShare": { "type": "number", "minimum": 0, "maximum": 1 }
+                  }
+                }
+              },
               "weakAdditions": {
                 "type": "array",
                 "description": "Addresses linked to this person only weakly: not in addresses, lines or lineShare, and never merged.",

@@ -6479,6 +6479,14 @@ function padEndDisplay(s, width) {
 }
 
 /** What a run in a shallow clone is marked with, on the first line of every output. */
+/**
+ * One sentence that says a run was sampled, for the outputs that have no header line of their own (CSV).
+ * @param {{ every: number, seed: string, filesSampled: number, filesTotal: number }} s
+ */
+export function sampledMark(s) {
+  return `sampled run: ${s.filesSampled} of ${s.filesTotal} files (1 in ${s.every}${s.seed ? `, seed "${s.seed}"` : ""}); every count is of the sampled files only, not of the repository. Run with --sample 1 for a complete count.`;
+}
+
 export const SHALLOW_MARK = "shallow clone, history before the cut is blamed on the cut";
 
 /**
@@ -7311,6 +7319,15 @@ export function githubLogin(mail) {
   return m ? m[1].toLowerCase() : null;
 }
 
+/**
+ * The numeric GitHub user id inside a noreply address of the form `12345+login@users.noreply.github.com`.
+ * Null for the older form without an id and for any other address.
+ * @param {string} mail
+ */
+function githubId(mail) {
+  return /^(\d+)\+[^@]+@users\.noreply\.github\.com$/i.exec(mail)?.[1] ?? null;
+}
+
 /** Compare identifiers ignoring the separators people vary: dots, dashes, underscores, spaces. */
 const loose = (/** @type {string} */ s) => foldIdentity(s).replace(/[\s._-]/g, "");
 
@@ -7365,6 +7382,9 @@ export function linkIdentities(authors) {
       const localOf = (/** @type {string} */ m) => m.split("@")[0].replace(/^\d+\+/, "");
       for (const [login, other] of /** @type {[string | null, typeof a][]} */ ([[la, b], [lb, a]])) {
         if (!login) continue;
+        // Two numeric ids are two GitHub accounts, even when one login string was used by both: never one person by login.
+        const [ida, idb] = [githubId(a.mail), githubId(b.mail)];
+        if (ida !== null && idb !== null && ida !== idb) continue;
         if (loose(login) === loose(localOf(other.mail)) || (other.author && loose(login) === loose(other.author))) {
           link(i, j, "login", `the GitHub login "${login}" also appears as ${loose(login) === loose(localOf(other.mail)) ? "the address" : "the name"} on the other`);
         }
@@ -8018,6 +8038,8 @@ async function main() {
     } else if (o.csv) {
       // CSV has no header line beyond the column names, which parsers read; the mark goes to stderr.
       if (r.shallow) console.error(`surviving-lines: ${SHALLOW_MARK}`);
+      // A sampled count is not the repository's count, and a saved CSV has no first line to say so.
+      if (r.sample.every > 1) console.error(`surviving-lines: ${sampledMark(r.sample)}`);
       // The table's blocks cannot go in CSV, so the same scope notes go to stderr, where the reader still sees them.
       for (const note of scopeNotes(r)) if (note) console.error(`surviving-lines: ${note}`);
       if (r.blame.copyDetection.reason && r.blame.copyDetection.reason !== "--no-copies") console.error(`surviving-lines: copy detection off: ${r.blame.copyDetection.reason}`);

@@ -241,6 +241,7 @@ test("R9-4: a merged row takes the newest last-commit date of its addresses", as
     async (dir) => {
       const r = await run(dir, ["--merge-identities"]);
       const person = r.authors.find((a) => a.addresses === 2);
+      // biome-ignore lint/correctness/noUnsafeOptionalChaining: used as a key, never dereferenced
       assert.equal(r.lastCommits[/** @type {string} */ (person?.mail)], "2026-01-03");
       assert.match(renderTable(r, null), /2026-01-03$/m);
     },
